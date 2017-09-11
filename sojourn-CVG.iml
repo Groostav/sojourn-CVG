@@ -22,6 +22,24 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: com.google.code.findbugs:jsr305:jar:3.0.2">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: javax.inject:javax.inject:jar:1">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/javax/inject/javax.inject/1/javax.inject-1.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
     <orderEntry type="module-library" scope="TEST">
       <library name="Kobalt: com.beust:jcommander:jar:1.64">
         <CLASSES>
@@ -35,6 +53,15 @@
       <library name="Kobalt: org.yaml:snakeyaml:jar:1.17">
         <CLASSES>
           <root url="jar://$USER_HOME$/.kobalt/cache/org/yaml/snakeyaml/1.17/snakeyaml-1.17.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: org.antlr:antlr4-runtime:jar:4.7">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/antlr/antlr4-runtime/4.7/antlr4-runtime-4.7.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />

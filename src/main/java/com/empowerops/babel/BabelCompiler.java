@@ -1,13 +1,7 @@
 package com.empowerops.babel;
 
-import com.empowerops.common.BailLexerErrorStrategy;
-import com.empowerops.jargon.EvaluableCompiler;
-import com.empowerops.jargon.model.VariableSymbol;
-import com.empowerops.linqalike.LinqingSet;
-import com.empowerops.linqalike.Queryable;
-import com.empowerops.linqalike.delegate.Func1;
-import com.empowerops.problem_definition.parser.BabelLexer;
-import com.empowerops.problem_definition.parser.BabelParser;
+import com.empowerops.babel.todo_deleteme.BabelLexer;
+import com.empowerops.babel.todo_deleteme.BabelParser;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -18,10 +12,11 @@ import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.empowerops.linqalike.Factories.from;
 import static java.util.logging.Level.CONFIG;
 
 /**
@@ -35,13 +30,13 @@ public class BabelCompiler implements EvaluableCompiler{
 
         public static final CompilationResult NullInstance = new Null();
 
-        protected final LinqingSet<BabelExpressionProblem> problems = new LinqingSet<>();
+        protected final Set<BabelExpressionProblem> problems = new HashSet<>();
 
         protected SymbolTable                                      symbolTable;
         protected RunningBabelCodeMap.ContextFreeNumericExecutable executable;
         protected boolean                                          booleanExpression = false;
 
-        public Queryable<BabelExpressionProblem> getProblems() {
+        public Set<BabelExpressionProblem> getProblems() {
             return problems;
         }
         public SymbolTable getSymbolTable() {

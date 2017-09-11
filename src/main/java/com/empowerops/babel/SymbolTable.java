@@ -1,16 +1,12 @@
 package com.empowerops.babel;
 
-import com.empowerops.common.documentation.Ordered;
-import com.empowerops.common.documentation.WrittenOnce;
-import com.empowerops.linqalike.*;
-import com.empowerops.problem_definition.parser.BabelParser;
-import kotlin.collections.EmptyIterator;
+
+import com.empowerops.babel.todo_deleteme.BabelParser;
 import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import java.util.Map;
 
-import static com.empowerops.linqalike.Factories.*;
 import static java.lang.Double.isNaN;
 
 /**
@@ -276,7 +272,7 @@ public class SymbolTable {
     public boolean containsDynamicVarLookup() {
         return containsDynamicVarLookup;
     }
-    void setContainsDynamicVarLookup(boolean containsDynamicVarLookup){
+    public void setContainsDynamicVarLookup(boolean containsDynamicVarLookup){
         this.containsDynamicVarLookup = containsDynamicVarLookup;
     }
 

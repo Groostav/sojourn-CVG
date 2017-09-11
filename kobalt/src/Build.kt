@@ -10,7 +10,9 @@ val p = project {
     version = "0.1"
 
     dependencies {
-//        compile("com.beust:jcommander:1.68")
+        compile("org.antlr:antlr4-runtime:4.7")
+        compile("javax.inject:javax.inject:1")
+        compile("com.google.code.findbugs:jsr305:3.0.2")
     }
 
     dependenciesTest {

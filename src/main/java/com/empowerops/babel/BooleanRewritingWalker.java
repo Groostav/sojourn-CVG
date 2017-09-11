@@ -2,8 +2,8 @@ package com.empowerops.babel;
 
 import com.empowerops.jargon.model.VariableSymbol;
 import com.empowerops.linqalike.LinqingMap;
-import com.empowerops.problem_definition.parser.BabelParser.*;
-import com.empowerops.problem_definition.parser.BabelParserBaseListener;
+import com.empowerops.babel.todo_deleteme.BabelParser.*;
+import com.empowerops.babel.todo_deleteme.BabelParserBaseListener;
 import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.misc.NotNull;

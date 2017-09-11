@@ -1,9 +1,10 @@
-import com.empowerops.linqalike.LinqingSet
-import com.empowerops.linqalike.Queryable
-import com.empowerops.problem_definition.parser.BabelParser
-import com.empowerops.problem_definition.parser.BabelParserBaseListener
+package com.empowerops.babel
+
+import com.empowerops.babel.SymbolTable
+import com.empowerops.babel.todo_deleteme.BabelParser
+import com.empowerops.babel.todo_deleteme.BabelParserBaseListener
 import org.antlr.v4.runtime.ParserRuleContext
-import org.antlr.v4.runtime.misc.NotNull
+import java.util.*
 
 /**
  * Created by Justin Casol on 2/2/2015.
@@ -11,7 +12,7 @@ import org.antlr.v4.runtime.misc.NotNull
 class SymbolTableBuildingWalker : BabelParserBaseListener() {
 
     val table = SymbolTable()
-    private val errors = LinqingSet<BabelExpressionProblem>()
+    private val errors = HashSet<BabelExpressionProblem>()
 
     override fun exitVariable(ctx: BabelParser.VariableContext) {
         val symbol = ctx.text
@@ -27,7 +28,7 @@ class SymbolTableBuildingWalker : BabelParserBaseListener() {
         table.setContainsDynamicVarLookup(true)
     }
 
-    val semanticProblems: Queryable<BabelExpressionProblem>
+    val semanticProblems: Set<BabelExpressionProblem>
         get() = errors
 }
 
