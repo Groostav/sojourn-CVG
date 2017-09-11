@@ -1,4 +1,4 @@
-package com.example;
+package com.empowerops.babel;
 import org.testng.annotations.Test;
 
 public class ExampleTest {

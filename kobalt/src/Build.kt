@@ -5,7 +5,7 @@ import com.beust.kobalt.plugin.kotlin.*
 
 val p = project {
     name = "sojourn-CVG"
-    group = "com.example"
+    group = "com.empowerops.sojourn"
     artifactId = name
     version = "0.1"
 
