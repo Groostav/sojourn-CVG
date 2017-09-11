@@ -3,6 +3,10 @@ import com.beust.kobalt.plugin.packaging.*
 import com.beust.kobalt.plugin.application.*
 import com.beust.kobalt.plugin.kotlin.*
 
+object Versions {
+    val kotlin = "1.0.3"
+}
+
 val p = project {
     name = "sojourn-CVG"
     group = "com.empowerops.sojourn"
@@ -10,6 +14,13 @@ val p = project {
     version = "0.1"
 
     dependencies {
+
+        compile(
+                "org.jetbrains.kotlin:kotlin-reflect:${Versions.kotlin}",
+                "org.jetbrains.kotlin:kotlin-runtime:${Versions.kotlin}",
+                "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
+        )
+
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
         compile("com.google.code.findbugs:jsr305:3.0.2")
