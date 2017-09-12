@@ -23,18 +23,18 @@
       </library>
     </orderEntry>
     <orderEntry type="module-library" scope="TEST">
-      <library name="Kobalt: com.beust:jcommander:jar:1.64">
+      <library name="Kobalt: org.yaml:snakeyaml:jar:1.17">
         <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/com/beust/jcommander/1.64/jcommander-1.64.jar!/" />
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/yaml/snakeyaml/1.17/snakeyaml-1.17.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
       </library>
     </orderEntry>
     <orderEntry type="module-library" scope="TEST">
-      <library name="Kobalt: org.yaml:snakeyaml:jar:1.17">
+      <library name="Kobalt: com.beust:jcommander:jar:1.64">
         <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/yaml/snakeyaml/1.17/snakeyaml-1.17.jar!/" />
+          <root url="jar://$USER_HOME$/.kobalt/cache/com/beust/jcommander/1.64/jcommander-1.64.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
