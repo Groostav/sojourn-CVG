@@ -28,3 +28,4 @@ out/
 # Kobalt
 .kobalt
 kobaltBuild/
+.idea/misc.xml
