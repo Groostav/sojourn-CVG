@@ -35,14 +35,9 @@ open class BabelExpression internal constructor(
                     "there was an error evaluating the expression \n\t" +
                             "'" + literalExpression + "' " +
                             "at the point: \n\t" +
-                            Formatting.verticallyPrintMembers(values.select({ l, r -> l + ":" + r })),
+                            values.entries.joinToString { it.key + ":" + it.value },
                     error
             )
-        }
-        catch (error: AssertionError) {
-            throw RuntimeBabelException(
-                    "there was an error evaluating the expression \n\t" + "'" + literalExpression + "' " + "at the point: \n\t" + Formatting.verticallyPrintMembers(
-                            values.select({ l, r -> l + ":" + r })), error)
         }
         finally {
             compilerResult.getSymbolTable().clearCheapPointScope()
