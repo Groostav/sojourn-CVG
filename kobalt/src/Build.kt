@@ -7,6 +7,10 @@ object Versions {
     val kotlin = "1.0.3"
 }
 
+val bs = buildScript {
+    repos("http://dl.bintray.com/kotlin/kotlinx")
+}
+
 val p = project {
     name = "sojourn-CVG"
     group = "com.empowerops.sojourn"
@@ -21,7 +25,8 @@ val p = project {
                 "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
         )
 
-//        compile("com.empowerops:babel:0.3")
+        compile(file("babel-0.3.jar"))
+        compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
         compile("com.google.code.findbugs:jsr305:3.0.2")
@@ -29,6 +34,7 @@ val p = project {
 
     dependenciesTest {
         compile("org.testng:testng:6.11")
+        compile("org.assertj:assertj-core:3.8.0")
     }
 
     assemble {
