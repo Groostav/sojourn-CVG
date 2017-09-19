@@ -21,6 +21,7 @@ val p = project {
                 "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
         )
 
+//        compile("com.empowerops:babel:0.3")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
         compile("com.google.code.findbugs:jsr305:3.0.2")
@@ -31,8 +32,7 @@ val p = project {
     }
 
     assemble {
-        jar {
-        }
+        mavenJars {  }
     }
 
     application {

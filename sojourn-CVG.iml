@@ -14,33 +14,6 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module-library">
-      <library name="Kobalt: org.antlr:antlr4-runtime:jar:4.7">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/antlr/antlr4-runtime/4.7/antlr4-runtime-4.7.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
-      <library name="Kobalt: org.jetbrains.kotlin:kotlin-stdlib:jar:1.0.3">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/kotlin/kotlin-stdlib/1.0.3/kotlin-stdlib-1.0.3.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
-      <library name="Kobalt: org.jetbrains.kotlin:kotlin-runtime:jar:1.0.3">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/kotlin/kotlin-runtime/1.0.3/kotlin-runtime-1.0.3.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
       <library name="Kobalt: org.jetbrains.kotlin:kotlin-reflect:jar:1.0.3">
         <CLASSES>
           <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/kotlin/kotlin-reflect/1.0.3/kotlin-reflect-1.0.3.jar!/" />
@@ -89,6 +62,33 @@
       <library name="Kobalt: javax.inject:javax.inject:jar:1">
         <CLASSES>
           <root url="jar://$USER_HOME$/.kobalt/cache/javax/inject/javax.inject/1/javax.inject-1.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: org.antlr:antlr4-runtime:jar:4.7">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/antlr/antlr4-runtime/4.7/antlr4-runtime-4.7.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: org.jetbrains.kotlin:kotlin-stdlib:jar:1.0.3">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/kotlin/kotlin-stdlib/1.0.3/kotlin-stdlib-1.0.3.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: org.jetbrains.kotlin:kotlin-runtime:jar:1.0.3">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/kotlin/kotlin-runtime/1.0.3/kotlin-runtime-1.0.3.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
