@@ -13,8 +13,10 @@ inputs:
   x12: { lower: 0,  upper: 60  }
   x13: { lower: 0,  upper: 90  }
   x14: { lower: 0,  upper: 120 }
-  x15: { lower: 0,  upper: 60  }    
-constraints:
+  x15: { lower: 0,  upper: 60  }
+
+#This translation of the P118 problem was verified to be the correct translation of the below text
+objectives:
   c0:  -x4+x1-7
   c1:  +x4-x1-6
   c2:  -x5+x2-7
@@ -49,3 +51,22 @@ constraints:
   c27: -x10-x11-x12+85
   c28: -x13-x14-x15+100
 
+# lb = [8;43;3;0;0;0;0;0;0;0;0;0;0;0;0]
+# ub = [21;57;16;90;120;60;90;120;60;90;120;60;90;120;60]
+# ccnt = 1;
+# c = []
+# for i = 1:4
+#     c(ccnt,:) = -x(3*i+1,:)+x(3*i-2,:)-7;
+#     c(ccnt+1,:) = x(3*i+1,:)-x(3*i-2,:)-6;
+#     c(ccnt+2,:) = -x(3*i+2,:)+x(3*i-1,:)-7;
+#     c(ccnt+3,:) = x(3*i+2,:)-x(3*i-1,:)-7;
+#     c(ccnt+4,:) = -x(3*i+3,:)+x(3*i,:)-7;
+#     c(ccnt+5,:) = x(3*i+3,:)-x(3*i,:)-6;
+#     ccnt = ccnt +6;
+# end
+# c(ccnt,:) = -x(1,:)-x(2,:)-x(3,:)+60;
+# c(ccnt+1,:) = -x(4,:)-x(5,:)-x(6,:)+50;
+# c(ccnt+2,:) = -x(7,:)-x(8,:)-x(9,:)+70;
+# c(ccnt+3,:) = -x(10,:)-x(11,:)-x(12,:)+85;
+# c(ccnt+4,:) = -x(13,:)-x(14,:)-x(15,:)+100;
+# ceq = [];

@@ -1,30 +1,83 @@
+inputs:
+  x1:  { lower: 0.01, upper: 0.05 }
+  x2:  { lower: 0.3,  upper: 0.65 }
+  x3:  { lower: 0.5,  upper: 1.0  }
+  x4:  { lower: 0.01, upper: 0.05 }
+  x5:  { lower: 0.3,  upper: 0.65 }
+  x6:  { lower: 0.5,  upper: 1.0  }
+  x7:  { lower: 0.01, upper: 0.05 }
+  x8:  { lower: 0.3,  upper: 0.65 }
+  x9:  { lower: 0.5,  upper: 1.0  }
+  x10: { lower: 0.01, upper: 0.05 }
+  x11: { lower: 0.3,  upper: 0.65 }
+  x12: { lower: 0.5,  upper: 1.0  }
+  x13: { lower: 0.01, upper: 0.05 }
+  x14: { lower: 0.3,  upper: 0.65 }
+  x15: { lower: 0.5,  upper: 1.0  }
+  x16: { lower: 0.01, upper: 0.05 }
+  x17: { lower: 0.3,  upper: 0.65 }
+  x18: { lower: 0.5,  upper: 1.0  }
+  x19: { lower: 0.01, upper: 0.05 }
+  x20: { lower: 0.3,  upper: 0.65 }
+  x21: { lower: 0.5,  upper: 1.0  }
+  x22: { lower: 0.01, upper: 0.05 }
+  x23: { lower: 0.3,  upper: 0.65 }
+  x24: { lower: 0.5,  upper: 1.0  }
+  x25: { lower: 0.01, upper: 0.05 }
+  x26: { lower: 0.3,  upper: 0.65 }
+  x27: { lower: 0.5,  upper: 1.0  }
+  x28: { lower: 0.01, upper: 0.05 }
+  x29: { lower: 0.3,  upper: 0.65 }
+  x30: { lower: 0.5,  upper: 1.0  }
 
-%lb=[0.01 0.3 0.5]; Replicated by n, number of beams
-%ub=[0.05 0.65 1]; Replicated by n, number of beams
+objectives:
+  c1  : 6*50000 * sum(1, 1,  j -> var[3*j]) / (x1*x2^2) - (14000.0e4*2.5)
+  c2  : 6*50000 * sum(1, 2,  j -> var[3*j]) / (x4*x5^2) - (14000.0e4*2.5)
+  c3  : 6*50000 * sum(1, 3,  j -> var[3*j]) / (x7*x8^2) - (14000.0e4*2.5)
+  c4  : 6*50000 * sum(1, 4,  j -> var[3*j]) / (x10*x11^2) - (14000.0e4*2.5)
+  c5  : 6*50000 * sum(1, 5,  j -> var[3*j]) / (x13*x14^2) - (14000.0e4*2.5)
+  c6  : 6*50000 * sum(1, 6,  j -> var[3*j]) / (x16*x17^2) - (14000.0e4*2.5)
+  c7  : 6*50000 * sum(1, 7,  j -> var[3*j]) / (x19*x20^2) - (14000.0e4*2.5)
+  c8  : 6*50000 * sum(1, 8,  j -> var[3*j]) / (x22*x23^2) - (14000.0e4*2.5)
+  c9  : 6*50000 * sum(1, 9,  j -> var[3*j]) / (x25*x26^2) - (14000.0e4*2.5)
+  c10 : 6*50000 * sum(1, 10, j -> var[3*j]) / (x28*x29^2) - (14000.0e4*2.5)
 
-TODO! verify bounds on sum expressions
-TODO simplify further
+  c11 : (x2 / x1) - 25
+  c12 : (x5 / x4) - 25
+  c13 : (x8 / x7) - 25
+  c14 : (x11 / x10) - 25
+  c15 : (x14 / x13) - 25
+  c16 : (x17 / x16) - 25
+  c17 : (x20 / x19) - 25
+  c18 : (x23 / x22) - 25
+  c19 : (x26 / x25) - 25
+  c20 : (x29 / x28) - 25
 
-    c1  : 6*50000 * sum(1, 1,  j -> var[3*j]) / (var[3*1-2]*var[3*1-1]^2) - (14000e4*2.5)
-    c2  : 6*50000 * sum(1, 2,  j -> var[3*j]) / (var[3*2-2]*var[3*2-1]^2) - (14000e4*2.5)
-    c3  : 6*50000 * sum(1, 3,  j -> var[3*j]) / (var[3*3-2]*var[3*3-1]^2) - (14000e4*2.5)
-    c4  : 6*50000 * sum(1, 4,  j -> var[3*j]) / (var[3*4-2]*var[3*4-1]^2) - (14000e4*2.5)
-    c5  : 6*50000 * sum(1, 5,  j -> var[3*j]) / (var[3*5-2]*var[3*5-1]^2) - (14000e4*2.5)
-    c6  : 6*50000 * sum(1, 6,  j -> var[3*j]) / (var[3*6-2]*var[3*6-1]^2) - (14000e4*2.5)
-    c7  : 6*50000 * sum(1, 7,  j -> var[3*j]) / (var[3*7-2]*var[3*7-1]^2) - (14000e4*2.5)
-    c8  : 6*50000 * sum(1, 8,  j -> var[3*j]) / (var[3*8-2]*var[3*8-1]^2) - (14000e4*2.5)
-    c9  : 6*50000 * sum(1, 9,  j -> var[3*j]) / (var[3*9-2]*var[3*9-1]^2) - (14000e4*2.5)
-    c10 : 6*50000 * sum(1, 10, j -> var[3*j]) / (var[3*10-2]*var[3*10-1]^2) - (14000e4*2.5)
+  c21 : sum(1, 10, i -> var[3*i] * var[3*i-1] * var[3*i-2])-0.4
 
-    c11 : (var[3*1-1] / var[3*1-2]) - 25
-    c12 : (var[3*2-1] / var[3*2-2]) - 25
-    c13 : (var[3*3-1] / var[3*3-2]) - 25
-    c14 : (var[3*4-1] / var[3*4-2]) - 25
-    c15 : (var[3*5-1] / var[3*5-2]) - 25
-    c16 : (var[3*6-1] / var[3*6-2]) - 25
-    c17 : (var[3*7-1] / var[3*7-2]) - 25
-    c18 : (var[3*8-1] / var[3*8-2]) - 25
-    c19 : (var[3*9-1] / var[3*9-2]) - 25
-    c20 : (var[3*10-1] / var[3*10-2]) - 25
-    
-    c21 : sum(1, 10, i -> var[3*i].*var[3*i-1].*var[3*i-2])-0.4;
+# Steppend beam
+#
+# %lb=[0.01 0.3 0.5]; Replicated by n, number of beams
+# %ub=[0.05 0.65 1]; Replicated by n, number of beams
+#
+# n=10;
+# E=2e11;
+# P=50000;
+# sigma=14000e4*2.5;
+# c=[];
+#
+# for i=1:n
+#     s1=0;
+#     for j=1:i
+#         s1=s1+x(3*j,:);
+#     end
+#     c(i,:)=6*P*s1./(x(3*i-2).*x(3*i-1).^2)-sigma;
+#     c(i+n,:)=(x(3*i-1)./x(3*i-2))-25;
+# end
+# s2=0;
+# for i=1:n
+#     s2=s2+x(3*i,:).*x(3*i-1,:).*x(3*i-2,:);
+# end
+# c(2*n+1,:)=s2-0.4;
+#
+# ceq=[];
