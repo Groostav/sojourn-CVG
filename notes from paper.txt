@@ -1,0 +1,7 @@
+notes from reading  [Symbolic Execution for Software Testing: Three Decades Later](https://people.eecs.berkeley.edu/~ksen/papers/cacm13.pdf)
+
+- a lot of this deals with boolean logic where I will be dealing with a lot of real numbers. I suspect many of the ideas hold but the concepts will involve inequalities-as-sets and their combinations. Not sure how much reading I need to do here.
+- having trouble differentiating between EGT and Concolic execution.
+- what is Austin Tool (26)?
+- most of the "improvements" talk about an attempt to reduce the program state. Exactly how big is the state going to be for my execution trees?
+- last commit to JCute is 2014. Where did people go? There is a fork from Feb of this yeear...

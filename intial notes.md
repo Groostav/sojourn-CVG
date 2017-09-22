@@ -7,6 +7,9 @@ how many feasible regions did it find | did it find all the feasible regions?
 what was the variance of the distribution | was the variance above X?
 was it able to produce enough points fast enough | does it make Y points-per-second?
 
+another maybe good property:
+does it spit out localized failures?
+
 some algorithms to test, as per George Cheng's recomendations in OPYL format:
 
 ### Simple problem: Pressure vessel ###
