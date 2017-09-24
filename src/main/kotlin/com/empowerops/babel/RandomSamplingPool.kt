@@ -25,7 +25,7 @@ class RandomSamplingPool(val inputVariables: List<InputVariable>, val constraint
         return results
     }
 
-    fun makeRandomVector(): InputVector = inputVariables
+    private fun makeRandomVector(): InputVector = inputVariables
             .associate { it.name to it.run { random.nextDouble() * (upperBound - lowerBound) + lowerBound } }
             .toImmutableMap()     
 

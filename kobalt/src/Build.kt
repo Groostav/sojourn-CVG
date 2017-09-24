@@ -25,7 +25,7 @@ val p = project {
                 "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
         )
 
-        compile(file("babel-0.3.jar"))
+        compile("com.empowerops:babel:0.3")
         compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
