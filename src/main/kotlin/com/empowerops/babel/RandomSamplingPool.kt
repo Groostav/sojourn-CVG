@@ -3,7 +3,7 @@ package com.empowerops.babel
 import kotlinx.collections.immutable.*
 import java.util.*
 
-class RandomSamplingPool(val inputVariables: List<InputVariable>, val constraints: List<BabelExpression>): ConstraintSolvingPool {
+class RandomSamplingPool(val inputVariables: List<InputVariable>, val constraints: List<BabelCompilationResult.BabelExpression>): ConstraintSolvingPool {
 
     val random = Random()
 
@@ -30,7 +30,7 @@ class RandomSamplingPool(val inputVariables: List<InputVariable>, val constraint
             .toImmutableMap()     
 
     companion object: ConstraintSolvingPoolFactory {
-        override fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>)
+        override fun create(inputSpec: List<InputVariable>, constraints: List<BabelCompilationResult.BabelExpression>)
                 = RandomSamplingPool(inputSpec, constraints)
     }
 }

@@ -63,9 +63,16 @@ class Benchmarks {
     @Test fun `sampling on simple inequalities`() = runTest(RandomSamplingPool, SimpleInequalitySet)
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool, P118)
 
+    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
+
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet){
         //setup
-        val constraints = constraintSpec.constraints.map { compiler.compile(it) } //TODO: validate that it compiled without failure once babel's problem API is finalized.
+        val constraints = constraintSpec.constraints
+                .map { compiler.compile(it) }
+                .map { when(it) {
+                    is BabelCompilationResult.BabelExpression -> it
+                    is BabelCompilationResult.Failure -> throw RuntimeException(it.problems.joinToString("\n"))
+                }}
         val solver = solverFactory.create(constraintSpec.inputs, constraints)
 
         //act
