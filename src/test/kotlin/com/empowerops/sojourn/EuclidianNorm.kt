@@ -21,7 +21,7 @@ fun findDispersion(names: List<String>, points: List<InputVector>): Pair<InputVe
 
 fun findCenter(names: List<String>, points: List<InputVector>): InputVector {
     var center = points.firstOrNull()?.mapValues { _, _ -> 0.0 }
-            ?: return names.associate { it to Double.NaN }.toImmutableMap()
+            ?: return names.associate { it to Double.NaN }.toInputVector()
 
     for(point in points){
         for(key in center.keys){

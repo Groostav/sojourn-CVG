@@ -31,7 +31,7 @@ class RandomSamplingPool(
 
     private fun makeRandomVector(): InputVector = inputVariables
             .associate { it.name to it.run { random.nextDouble() * (upperBound - lowerBound) + lowerBound } }
-            .toImmutableMap()     
+            .toInputVector()
 
     companion object: ConstraintSolvingPoolFactory {
         override fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>)

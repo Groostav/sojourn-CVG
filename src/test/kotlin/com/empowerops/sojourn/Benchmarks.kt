@@ -66,6 +66,16 @@ class Benchmarks {
             targetSampleSize = 5_000
     )
 
+    val TopCorder100D = ConstraintSet(
+            "Top-corder-200D",
+            (1..200).map { "x$it" }.map { InputVariable(it, 10.0, 11.0) },
+            (1..200).map { "x$it >= 10.5" },
+            (1..200).associate { "x$it" to 10.75 }.toInputVector(),
+            seeds = immutableListOf((1..200).associate { "x$it" to 10.75 }.toInputVector()),
+            dispersion = 0.95, //TODO: this value doesnt seem correct at all. How is 200 ranges of [10.5..11] variance ~= 1.0?
+            targetSampleSize = 200
+    )
+
     val P118 = ConstraintSet(
             name = "P118",
             inputs = listOf(
@@ -120,10 +130,12 @@ class Benchmarks {
     @Test fun `random walking brainded inequalities with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
     @Test(enabled = false) fun `ibex braindead inequalities`() = runTest(ChocoIbexSolvingPool.Factory(), BriandeadInequalitySet)
 
+    @Test fun `sampling top-corner-100D inequalities`() = runTest(RandomSamplingPool1234, TopCorder100D)
+    @Test fun `random walking top-corner-100D with one seed`() = runTest(RandomWalkingPool1234, TopCorder100D)
+    @Test(enabled = false) fun `ibex top-corner-100D inequalities`() = runTest(ChocoIbexSolvingPool.Factory(), TopCorder100D)
+
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
     @Test(enabled = false) fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
-
-
 
 
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
@@ -168,7 +180,7 @@ fun expand(inputs: List<String>, values: List<Double>): ImmutableList<InputVecto
     var results = immutableListOf<InputVector>()
 
     for(index in 0 until values.size step inputs.size) {
-        val result = inputs.zip(values.subList(index, index + inputs.size)).toMap().toImmutableMap()
+        val result = inputs.zip(values.subList(index, index + inputs.size)).toInputVector()
         results += result
     }
 

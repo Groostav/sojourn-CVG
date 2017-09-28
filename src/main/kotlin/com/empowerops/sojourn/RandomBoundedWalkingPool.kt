@@ -70,7 +70,7 @@ class RandomBoundedWalkingPool(
 
         val normalized = unnormalized.map { it / length }
 
-        return inputs.zip(normalized).toMap().toImmutableMap()
+        return inputs.zip(normalized).toInputVector()
     }
 
     companion object: ConstraintSolvingPoolFactory {

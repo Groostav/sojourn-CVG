@@ -59,7 +59,7 @@ val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow
 
 
 inline fun <K, V, R> ImmutableMap<K, V>.mapValues(transform: (K, V) -> R): ImmutableMap<K, R> {
-    val result = immutableMapOf<K, R>().builder()
+    val result = immutableHashMapOf<K, R>().builder()
 
     for((key, value) in this){
         result += key to transform(key, value)
