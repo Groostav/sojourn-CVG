@@ -110,9 +110,12 @@ class Benchmarks {
             targetSampleSize = -1
     )
 
+    @Test fun `sampling sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
     @Test fun `random walking sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
+
+    
     @Test fun `sampling braindead inequalities`() = runTest(RandomSamplingPool1234, BriandeadInequalitySet)
-    @Test fun `random walking with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
+    @Test fun `random walking brainded inequalities with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
 //    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
