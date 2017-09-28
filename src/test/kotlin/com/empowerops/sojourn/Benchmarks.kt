@@ -6,6 +6,7 @@ import com.empowerops.babel.CompilationFailure
 import kotlinx.collections.immutable.*
 import org.assertj.core.api.Assertions.*
 import org.assertj.core.data.Offset
+import org.testng.SkipException
 import org.testng.annotations.Test
 import java.util.*
 
@@ -24,7 +25,7 @@ class Benchmarks {
             val dispersion: Double,
             val targetSampleSize: Int,
             val seeds: ImmutableList<InputVector> = immutableListOf(),
-            val fudgeFactor: Double = 0.05
+            val fudgeFactor: Double = 0.10
     )
 
     val SanityCheck = ConstraintSet(
@@ -62,7 +63,7 @@ class Benchmarks {
                     OneHundredBraindeadPoints
             ),
             dispersion = 0.579,
-            targetSampleSize = 50_000
+            targetSampleSize = 5_000
     )
 
     val P118 = ConstraintSet(
@@ -113,7 +114,7 @@ class Benchmarks {
     @Test fun `sampling braindead inequalities`() = runTest(RandomSamplingPool1234, BriandeadInequalitySet)
     @Test fun `random walking with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
 
-//    @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
+    @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
 //    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
 
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
@@ -129,12 +130,15 @@ class Benchmarks {
 
         //act
         val (timeTaken, results) = measureTime { solver.makeNewPointGeneration(targetSampleSize, seeds) }
-        val (actualCentroid, actualDispersion) = findDispersion(results)
+        val (actualCentroid, actualDispersion) = findDispersion(inputs.map { it.name }, results)
 
         //assert 1 --publish performance results
         val situationKey = "${solver.name}-${constraintSpec.name}"
+        TEAMCITY += "$situationKey-amount" to results.size
         TEAMCITY += "$situationKey-variance" to actualDispersion
         TEAMCITY += "$situationKey-time" to timeTaken
+
+        if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
 
         //assert 2 -- red/green assertions
         assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}

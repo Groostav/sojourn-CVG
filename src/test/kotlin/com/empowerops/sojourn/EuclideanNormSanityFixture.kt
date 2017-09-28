@@ -14,7 +14,7 @@ public class EuclideanNormSanityFixture {
         val p2 = immutableMapOf("x1" to 1.0)
         val p3 = immutableMapOf("x1" to -1.0)
 
-        val (center, dispersion) = findDispersion(listOf(p1, p2, p3))
+        val (center, dispersion) = findDispersion(listOf("x1"), listOf(p1, p2, p3))
         
         assertThat(center).isEqualTo(mapOf("x1" to 0.0))
         assertThat(dispersion).isEqualTo(2.0/3.0)
@@ -27,7 +27,7 @@ public class EuclideanNormSanityFixture {
         val p3 = immutableMapOf("x1" to +1.0, "x2" to -1.0)
         val p4 = immutableMapOf("x1" to +1.0, "x2" to +1.0)
 
-        val (center, dispersion) = findDispersion(listOf(p1, p2, p3, p4))
+        val (center, dispersion) = findDispersion(listOf("x1", "x2"), listOf(p1, p2, p3, p4))
 
         assertThat(center).isEqualTo(mapOf("x1" to 0.0, "x2" to 0.0))
         assertThat(dispersion).isEqualTo(Math.sqrt(2.0))

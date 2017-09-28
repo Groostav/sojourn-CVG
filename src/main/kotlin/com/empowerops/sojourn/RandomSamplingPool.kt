@@ -15,7 +15,7 @@ class RandomSamplingPool(
 
         var results = immutableListOf<InputVector>()
 
-        while(results.size != pointCount){
+        for(point in 0 until pointCount){
 
             val candidate = makeRandomVector()
 
