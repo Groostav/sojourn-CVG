@@ -110,7 +110,9 @@ class Benchmarks {
             targetSampleSize = -1
     )
 
-    @Test fun `sampling sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
+
+
+    @Test fun `sampling sanity check`() = runTest(RandomSamplingPool1234, SanityCheck)
     @Test fun `random walking sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
     @Test(enabled = false)fun `ibex sanity check`() = runTest(ChocoIbexSolvingPool.Factory(), SanityCheck)
     
@@ -120,6 +122,9 @@ class Benchmarks {
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
     @Test(enabled = false) fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
+
+
+
 
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
         //setup
