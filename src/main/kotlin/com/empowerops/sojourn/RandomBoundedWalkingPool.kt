@@ -21,24 +21,24 @@ class RandomBoundedWalkingPool(
 
             val direction = randomUnitVector(inputVariables.map { it.name })
 
-            var edgeCandidate = makeBoundedOffset(base, direction)
+            var offsetCandidate = makeBoundedOffset(base, direction)
 
             //TODO: this also doesnt consider "holes" or multi-zones along the vector
             var changeFactor = 0.5
             for(step in 0 until 20){
 
-                val finalCandidate = base vecPlus edgeCandidate
-                val isInSpace = constraints.passFor(finalCandidate) && inputVariables.canProduce(finalCandidate)
+                val candidate = base vecPlus offsetCandidate
+                val isInSpace = constraints.passFor(candidate) && inputVariables.canProduce(candidate)
                 val stepDirection = if(isInSpace) +1.0 else -1.0
-                val offset = edgeCandidate * changeFactor * stepDirection
-                edgeCandidate = edgeCandidate vecPlus offset
+                val offset = offsetCandidate * changeFactor * stepDirection
+                offsetCandidate = offsetCandidate vecPlus offset
                 changeFactor /= 2.0
 
                 //rather than build the candidate here, i could just use a N-step bsearch (eg 20 step) to find the edge,
                 //then interpolate linearly between the base and the edge.
             }
 
-            val result = base vecPlus (edgeCandidate * random.nextDouble())
+            val result = base vecPlus (offsetCandidate * random.nextDouble())
             if(constraints.passFor(result) && inputVariables.canProduce(result)){
                 results += result
             }
