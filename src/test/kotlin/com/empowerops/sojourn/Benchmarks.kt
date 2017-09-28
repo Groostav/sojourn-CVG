@@ -66,8 +66,8 @@ class Benchmarks {
             targetSampleSize = 5_000
     )
 
-    val TopCorder100D = ConstraintSet(
-            "Top-corder-200D",
+    val TopCorner200D = ConstraintSet(
+            "Top-corner-200D",
             (1..200).map { "x$it" }.map { InputVariable(it, 10.0, 11.0) },
             (1..200).map { "x$it >= 10.5" },
             (1..200).associate { "x$it" to 10.75 }.toInputVector(),
@@ -130,9 +130,9 @@ class Benchmarks {
     @Test fun `random walking brainded inequalities with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
     @Test(enabled = false) fun `ibex braindead inequalities`() = runTest(ChocoIbexSolvingPool.Factory(), BriandeadInequalitySet)
 
-    @Test fun `sampling top-corner-100D inequalities`() = runTest(RandomSamplingPool1234, TopCorder100D)
-    @Test fun `random walking top-corner-100D with one seed`() = runTest(RandomWalkingPool1234, TopCorder100D)
-    @Test(enabled = false) fun `ibex top-corner-100D inequalities`() = runTest(ChocoIbexSolvingPool.Factory(), TopCorder100D)
+    @Test fun `sampling top-corner-200D inequalities`() = runTest(RandomSamplingPool1234, TopCorner200D)
+    @Test fun `random walking top-corner-200D with one seed`() = runTest(RandomWalkingPool1234, TopCorner200D)
+    @Test(enabled = false) fun `ibex top-corner-200D inequalities`() = runTest(ChocoIbexSolvingPool.Factory(), TopCorner200D)
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
     @Test(enabled = false) fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
