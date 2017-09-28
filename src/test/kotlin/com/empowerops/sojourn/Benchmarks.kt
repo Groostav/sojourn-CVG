@@ -10,6 +10,7 @@ import org.assertj.core.api.Assertions.*
 import org.assertj.core.data.Offset
 import org.testng.annotations.Test
 import java.util.*
+import kotlin.system.measureTimeMillis
 
 class Benchmarks {
 
@@ -109,13 +110,14 @@ class Benchmarks {
         val solver = solverFactory.create(inputs, constraints)
 
         //act
-        val results: ImmutableList<InputVector> = solver.makeNewPointGeneration(targetSampleSize, immutableListOf())
+        measureTime {  }
+        val (timeTaken, results) = measureTime { solver.makeNewPointGeneration(targetSampleSize, immutableListOf()) }
         val (actualCentroid, actualDispersion) = findDispersion(results)
 
         //assert 1 --publish performance results
-        println("echoing to teamcity[buildStatisticValue key='${solver.name}-${constraintSpec.name}' value='$actualDispersion']")
-        println("##teamcity[buildStatisticValue key='${solver.name}-${constraintSpec.name}' value='$actualDispersion']")
-//        println("##teamcity[centroid solver='${solver.name}' constraintSet='${constraintSpec.name}' value='$actualDispersion']")
+        val situationKey = "${solver.name}-${constraintSpec.name}"
+        TEAMCITY += "$situationKey-variance" to actualDispersion
+        TEAMCITY += "$situationKey-time" to timeTaken
 
         //assert 2 -- red/green assertions
         assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
@@ -130,7 +132,16 @@ class Benchmarks {
 }
 
 val ConstraintSolvingPool.name: String get() = javaClass.simpleName
-    
+
+fun <R> measureTime(op: () -> R): Pair<Long, R> {
+    var result: Any? = null
+    val time = measureTimeMillis {
+        result = op()
+    }
+    @Suppress("UNCHECKED_CAST") //safe by inline-nature of measureTimeMillis
+    return time to (result as R)
+}
+
 infix fun InputVector.vecMinus(other: InputVector): InputVector {
     require(this.size == other.size)
 
@@ -144,3 +155,9 @@ infix fun InputVector.vecMinus(other: InputVector): InputVector {
 }
 
 val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow(it, 2.0) })
+
+object TEAMCITY {
+    operator fun plusAssign(nameValuePair: Pair<String, Any>) {
+        println("##teamcity[buildStatisticValue key='${nameValuePair.first}' value='${nameValuePair.second}']")
+    }
+}
