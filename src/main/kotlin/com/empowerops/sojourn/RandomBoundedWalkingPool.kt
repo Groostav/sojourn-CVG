@@ -21,18 +21,27 @@ class RandomBoundedWalkingPool(
 
             val direction = randomUnitVector(inputVariables.map { it.name })
 
-            var candidate = makeBoundedOffset(base, direction)
+            var edgeCandidate = makeBoundedOffset(base, direction)
 
-            while (constraints.any { !it.evaluate(base vecPlus candidate).isPassedConstraint() }) {
+            //TODO: this also doesnt consider "holes" or multi-zones along the vector
+            var changeFactor = 0.5
+            for(step in 0 until 20){
 
-                //not sure this is a fair distribution --I have the sneaking suspicion this skews closer to center
-                candidate /= 2.0
+                val finalCandidate = base vecPlus edgeCandidate
+                val isInSpace = constraints.passFor(finalCandidate) && inputVariables.canProduce(finalCandidate)
+                val stepDirection = if(isInSpace) +1.0 else -1.0
+                val offset = edgeCandidate * changeFactor * stepDirection
+                edgeCandidate = edgeCandidate vecPlus offset
+                changeFactor /= 2.0
 
                 //rather than build the candidate here, i could just use a N-step bsearch (eg 20 step) to find the edge,
                 //then interpolate linearly between the base and the edge.
             }
 
-            results += base vecPlus candidate
+            val result = base vecPlus (edgeCandidate * random.nextDouble())
+            if(constraints.passFor(result) && inputVariables.canProduce(result)){
+                results += result
+            }
         }
 
         return results
@@ -47,7 +56,7 @@ class RandomBoundedWalkingPool(
                 if(direction[name]!! > 0.0) (upperBound - base[name]!!) / direction[name]!!
                 else (base[name]!! - lowerBound) / direction[name]!!
             }
-            factor = Math.min(factor, candidate)
+            factor = Math.min(Math.abs(factor), Math.abs(candidate))
         }
 
         return direction * factor
@@ -56,8 +65,8 @@ class RandomBoundedWalkingPool(
 
     private fun randomUnitVector(inputs: List<String>): InputVector {
 
-        val unnormalized = (0 until inputs.size).map { random.nextDouble() }
-        val length = unnormalized.sum()
+        val unnormalized = (0 until inputs.size).map { random.nextDouble()*2.0 - 1.0 }
+        val length = Math.abs(unnormalized.sum())
 
         val normalized = unnormalized.map { it / length }
 

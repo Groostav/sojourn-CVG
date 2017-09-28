@@ -4,7 +4,7 @@ import com.beust.kobalt.plugin.application.*
 import com.beust.kobalt.plugin.kotlin.*
 
 object Versions {
-    val kotlin = "1.0.3"
+    val kotlin = "1.1.50"
     val babel = "0.6"
 }
 

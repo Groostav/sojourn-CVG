@@ -8,7 +8,6 @@ import org.assertj.core.api.Assertions.*
 import org.assertj.core.data.Offset
 import org.testng.annotations.Test
 import java.util.*
-import kotlin.system.measureTimeMillis
 
 class Benchmarks {
 
@@ -27,6 +26,19 @@ class Benchmarks {
             val seeds: ImmutableList<InputVector> = immutableListOf(),
             val fudgeFactor: Double = 0.05
     )
+
+    val SanityCheck = ConstraintSet(
+            name = "SanityCheck",
+            inputs = listOf(InputVariable("x", -1.0, +1.0)),
+            constraints = listOf(
+                    "x > 0.0"
+            ),
+            centroid = immutableMapOf("x" to 0.5),
+            seeds = immutableListOf(immutableMapOf("x" to 0.5)),
+            dispersion = 0.25,
+            targetSampleSize = 1_000
+    )
+
 
     val BriandeadInequalitySet = ConstraintSet(
             name = "Braindead",
@@ -97,9 +109,11 @@ class Benchmarks {
             targetSampleSize = -1
     )
 
-    @Test fun `sampling braindead inequalities`() = runTest(RandomSamplingPool1234, BriandeadInequalitySet)
+    @Test fun `random walking sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
 
-    @Test fun `random walking with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
+//    @Test fun `sampling braindead inequalities`() = runTest(RandomSamplingPool1234, BriandeadInequalitySet)
+//
+//    @Test fun `random walking with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
     
 //    @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
 //    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)

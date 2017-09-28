@@ -1,7 +1,8 @@
 package com.empowerops.sojourn
 
+import com.empowerops.babel.BabelExpression
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.immutableMapOf
+import kotlinx.collections.immutable.*
 import kotlin.system.measureTimeMillis
 
 
@@ -41,6 +42,18 @@ infix fun InputVector.vecPlus(other: InputVector): InputVector {
     return result.build()
 }
 
+fun List<InputVariable>.canProduce(vector: InputVector): Boolean{
+    
+    for((name, lowerBound, upperBound) in this){
+        val value = vector[name]!!
+        if(value < lowerBound || value > upperBound) { return false }
+    }
+    
+    return true
+}
+
+fun List<BabelExpression>.passFor(inputs: InputVector)
+        = all { it.evaluate(inputs).isPassedConstraint() }
 
 val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow(it, 2.0) })
 
