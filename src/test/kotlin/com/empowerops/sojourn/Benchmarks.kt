@@ -118,7 +118,7 @@ class Benchmarks {
     @Test fun `random walking brainded inequalities with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
-//    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
+    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
 
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
         //setup
