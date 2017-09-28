@@ -113,7 +113,9 @@ class Benchmarks {
         val (actualCentroid, actualDispersion) = findDispersion(results)
 
         //assert 1 --publish performance results
-        println("##teamcity[centroid solver='${solver.name}' constraintSet='${constraintSpec.name}' value='$actualDispersion']")
+        println("echoing to teamcity[buildStatisticValue key='${solver.name}-${constraintSpec.name}' value='$actualDispersion']")
+        println("##teamcity[buildStatisticValue key='${solver.name}-${constraintSpec.name}' value='$actualDispersion']")
+//        println("##teamcity[centroid solver='${solver.name}' constraintSet='${constraintSpec.name}' value='$actualDispersion']")
 
         //assert 2 -- red/green assertions
         assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
