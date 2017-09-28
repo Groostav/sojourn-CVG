@@ -19,7 +19,7 @@ class RandomSamplingPool(
 
             val candidate = makeRandomVector()
 
-            if(constraints.any { ! it.evaluate(candidate).isPassedConstraint() }){
+            if( ! constraints.passFor(candidate)){
                 continue
             }
 
