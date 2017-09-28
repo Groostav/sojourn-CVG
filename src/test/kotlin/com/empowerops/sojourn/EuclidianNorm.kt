@@ -20,7 +20,7 @@ fun findDispersion(points: List<InputVector>): Pair<InputVector, Double> {
 }
 
 fun findCenter(points: List<InputVector>): InputVector {
-    var center = points.first().mapValues { 0.0 }
+    var center = points.first().mapValues { _, _ -> 0.0 }
 
     for(point in points){
         for(key in center.keys){
@@ -34,13 +34,3 @@ fun findCenter(points: List<InputVector>): InputVector {
 
     return center
 }
-
-
-inline fun <K, V, R> ImmutableMap<K, V>.mapValues(transform: (V) -> R): ImmutableMap<K, R>{
-    val container = immutableMapOf<K, R>().builder()
-    for((key, value) in this){
-        container[key] = transform(value)
-    }
-    return container.build()
-}
-

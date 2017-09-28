@@ -1,0 +1,56 @@
+package com.empowerops.sojourn
+
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.immutableMapOf
+import kotlin.system.measureTimeMillis
+
+
+fun <R> measureTime(op: () -> R): Pair<Long, R> {
+    var result: Any? = null
+    val time = measureTimeMillis {
+        result = op()
+    }
+    @Suppress("UNCHECKED_CAST") //safe by inline-nature of measureTimeMillis
+    return time to (result as R)
+}
+
+operator fun InputVector.div(scalar: Double): InputVector = mapValues { key, value -> value / scalar }
+operator fun InputVector.times(scalar: Double): InputVector = mapValues { key, value -> value * scalar }
+
+infix fun InputVector.vecMinus(other: InputVector): InputVector {
+    require(this.size == other.size)
+
+    val result = InputVector().builder()
+
+    for((key, value) in this){
+        result += key to value - other.getValue(key)
+    }
+
+    return result.build()
+}
+
+infix fun InputVector.vecPlus(other: InputVector): InputVector {
+    require(this.size == other.size)
+
+    val result = InputVector().builder()
+
+    for((key, value) in this){
+        result += key to value + other.getValue(key)
+    }
+
+    return result.build()
+}
+
+
+val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow(it, 2.0) })
+
+
+inline fun <K, V, R> ImmutableMap<K, V>.mapValues(transform: (K, V) -> R): ImmutableMap<K, R> {
+    val result = immutableMapOf<K, R>().builder()
+
+    for((key, value) in this){
+        result += key to transform(key, value)
+    }
+
+    return result.build()
+}

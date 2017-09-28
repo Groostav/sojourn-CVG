@@ -3,9 +3,7 @@ package com.empowerops.sojourn
 import com.empowerops.babel.BabelCompiler
 import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.immutableListOf
-import kotlinx.collections.immutable.immutableMapOf
+import kotlinx.collections.immutable.*
 import org.assertj.core.api.Assertions.*
 import org.assertj.core.data.Offset
 import org.testng.annotations.Test
@@ -15,6 +13,7 @@ import kotlin.system.measureTimeMillis
 class Benchmarks {
 
     val RandomSamplingPool1234 = RandomSamplingPool.Factory(Random(1234L))
+    val RandomWalkingPool1234 = RandomBoundedWalkingPool.Factory(Random(1234L))
 
     val compiler = BabelCompiler()
 
@@ -25,6 +24,7 @@ class Benchmarks {
             val centroid: InputVector,
             val dispersion: Double,
             val targetSampleSize: Int,
+            val seeds: ImmutableList<InputVector> = immutableListOf(),
             val fudgeFactor: Double = 0.05
     )
 
@@ -44,6 +44,10 @@ class Benchmarks {
                     "x3" to 0.561,
                     "x4" to 0.506,
                     "x5" to 0.440
+            ),
+            seeds = expand(
+                    listOf("x1", "x2", "x3", "x4", "x5"),
+                    OneHundredBraindeadPoints
             ),
             dispersion = 0.579,
             targetSampleSize = 50_000
@@ -94,6 +98,8 @@ class Benchmarks {
     )
 
     @Test fun `sampling braindead inequalities`() = runTest(RandomSamplingPool1234, BriandeadInequalitySet)
+
+    @Test fun `random walking with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
     
 //    @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
 //    @Test fun `ibex on P118`() = runTest(ChocoIbexSolvingPool.Factory(), P118)
@@ -110,8 +116,7 @@ class Benchmarks {
         val solver = solverFactory.create(inputs, constraints)
 
         //act
-        measureTime {  }
-        val (timeTaken, results) = measureTime { solver.makeNewPointGeneration(targetSampleSize, immutableListOf()) }
+        val (timeTaken, results) = measureTime { solver.makeNewPointGeneration(targetSampleSize, seeds) }
         val (actualCentroid, actualDispersion) = findDispersion(results)
 
         //assert 1 --publish performance results
@@ -133,28 +138,17 @@ class Benchmarks {
 
 val ConstraintSolvingPool.name: String get() = javaClass.simpleName
 
-fun <R> measureTime(op: () -> R): Pair<Long, R> {
-    var result: Any? = null
-    val time = measureTimeMillis {
-        result = op()
-    }
-    @Suppress("UNCHECKED_CAST") //safe by inline-nature of measureTimeMillis
-    return time to (result as R)
-}
+fun expand(inputs: List<String>, values: List<Double>): ImmutableList<InputVector> {
 
-infix fun InputVector.vecMinus(other: InputVector): InputVector {
-    require(this.size == other.size)
+    var results = immutableListOf<InputVector>()
 
-    val result = InputVector().builder()
-
-    for((key, value) in this){
-        result += key to value - other.getValue(key)
+    for(index in 0 until values.size step inputs.size) {
+        val result = inputs.zip(values.subList(index, index + inputs.size)).toMap().toImmutableMap()
+        results += result
     }
 
-    return result.build()
+    return results
 }
-
-val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow(it, 2.0) })
 
 object TEAMCITY {
     operator fun plusAssign(nameValuePair: Pair<String, Any>) {
