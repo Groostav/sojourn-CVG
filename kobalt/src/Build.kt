@@ -31,7 +31,6 @@ val p = project {
         )
 
         compile("org.choco-solver:choco-solver:4.0.4")
-        //compile("com.empowerops:babel:${Versions-.babel}")
         compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
@@ -40,7 +39,6 @@ val p = project {
 
     dependenciesTest {
         compile("org.choco-solver:choco-solver:jar:sources:4.0.4")
-        //compile("com.empowerops:babel:jar:sources:${Versions.babel}")
         compile("org.testng:testng:6.11")
         compile("org.assertj:assertj-core:3.8.0")
         compile("org.jetbrains.kotlin:kotlin-stdlib:jar:sources:${Versions.kotlin}")
