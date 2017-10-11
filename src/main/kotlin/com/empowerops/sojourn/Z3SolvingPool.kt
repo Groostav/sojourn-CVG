@@ -1,5 +1,6 @@
-package com.empowerops.babel
+package com.empowerops.sojourn
 
+import com.empowerops.babel.*
 import com.empowerops.babel.BabelParser.*
 import com.microsoft.z3.*
 import kotlinx.collections.immutable.ImmutableList
@@ -9,7 +10,7 @@ import java.util.*
 
 class Z3SolvingPool: ConstraintSolvingPool {
 
-    override fun makeNewPointGeneration(pointCount: Int): ImmutableList<InputVector> {
+    override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
 //        val x =
         TODO()
     }

@@ -4,7 +4,8 @@ import com.beust.kobalt.plugin.application.*
 import com.beust.kobalt.plugin.kotlin.*
 
 object Versions {
-    val kotlin = "1.0.3"
+    val kotlin = "1.1.50"
+    val babel = "0.7"
 }
 
 val bs = buildScript {
@@ -30,7 +31,7 @@ val p = project {
         )
 
         compile("org.choco-solver:choco-solver:4.0.4")
-//        compile("com.empowerops:babel:0.4")
+        //compile("com.empowerops:babel:${Versions-.babel}")
         compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
@@ -39,13 +40,19 @@ val p = project {
 
     dependenciesTest {
         compile("org.choco-solver:choco-solver:jar:sources:4.0.4")
-//        compile("com.empowerops:babel:jar:sources:0.4")
+        //compile("com.empowerops:babel:jar:sources:${Versions.babel}")
         compile("org.testng:testng:6.11")
         compile("org.assertj:assertj-core:3.8.0")
+        compile("org.jetbrains.kotlin:kotlin-stdlib:jar:sources:${Versions.kotlin}")
     }
 
     assemble {
         mavenJars {  }
+    }
+
+    test {
+        include("**/*Fixture.class")
+        include("**/*Benchmarks.class")
     }
 
     application {

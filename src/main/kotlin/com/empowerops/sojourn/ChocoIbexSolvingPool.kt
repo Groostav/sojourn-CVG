@@ -1,13 +1,12 @@
-package com.empowerops.babel
+package com.empowerops.sojourn
 
+import com.empowerops.babel.BabelExpression
 import kotlinx.collections.immutable.ImmutableList
 import org.chocosolver.solver.Model
-import org.chocosolver.solver.Solver
-import org.chocosolver.solver.constraints.real.RealConstraint
 
 class ChocoIbexSolvingPool: ConstraintSolvingPool {
 
-    override fun makeNewPointGeneration(pointCount: Int): ImmutableList<InputVector> {
+    override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
 
         TODO()
     }
