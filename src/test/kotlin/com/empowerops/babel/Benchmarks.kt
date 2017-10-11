@@ -70,8 +70,8 @@ class Benchmarks {
         val constraints = constraintSpec.constraints
                 .map { compiler.compile(it) }
                 .map { when(it) {
-                    is BabelCompilationResult.BabelExpression -> it
-                    is BabelCompilationResult.Failure -> throw RuntimeException(it.problems.joinToString("\n"))
+                    is BabelExpression -> it
+                    is CompilationFailure -> throw RuntimeException(it.problems.joinToString("\n"))
                 }}
         val solver = solverFactory.create(constraintSpec.inputs, constraints)
 

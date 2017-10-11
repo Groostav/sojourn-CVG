@@ -15,7 +15,7 @@ class ChocoIbexSolvingPool: ConstraintSolvingPool {
     class Factory: ConstraintSolvingPoolFactory {
         override fun create(
                 inputSpec: List<InputVariable>,
-                constraints: List<BabelCompilationResult.BabelExpression>
+                constraints: List<BabelExpression>
         ): ConstraintSolvingPool {
 
             val aliases = inputSpec

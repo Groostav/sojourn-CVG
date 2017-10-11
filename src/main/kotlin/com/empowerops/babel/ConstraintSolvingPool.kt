@@ -8,7 +8,7 @@ typealias InputVector = ImmutableMap<String, Double>
 data class InputVariable(val name: String, val lowerBound: Double, val upperBound: Double)
 
 interface ConstraintSolvingPoolFactory {
-    fun create(inputSpec: List<InputVariable>, constraints: List<BabelCompilationResult.BabelExpression>): ConstraintSolvingPool
+    fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>): ConstraintSolvingPool
 }
 
 interface ConstraintSolvingPool {
