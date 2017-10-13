@@ -27,21 +27,25 @@ class Z3SolvingPool: ConstraintSolvingPool {
 
             Context().config {
 
+                val solver: Solver = ctx.mkSolver()
+
                 //1: input bounds
                 val inputExprs = inputSpec.associate { input ->
                     val inputExpr = ctx.mkRealConst(input.name)
 
-                    inputExpr gt input.lowerBound.asZ3Literal()
-                    inputExpr lt input.upperBound.asZ3Literal()
+                    solver.assertAndTrack(inputExpr gt input.lowerBound.asZ3Literal(), ctx.mkBoolConst("${input.name}_LB"))
+                    solver.assertAndTrack(inputExpr lt input.upperBound.asZ3Literal(), ctx.mkBoolConst("${input.name}_UB"))
 
                     input.name to inputExpr
                 }
 
                 //2: transcode constraint expressions
-                constraints.forEach {
+                constraints.forEach { constraint ->
 
                     val transcoder = BabelZ3TranscodingWalker(ctx, inputExprs)
-                    it.walk(transcoder)
+                    constraint.walk(transcoder)
+
+                    solver.assertAndTrack(transcoder.transcodedExpr, ctx.mkBoolConst(constraint.expressionLiteral))
                 }
 
                 //3: add objective function
@@ -56,8 +60,13 @@ class Z3SolvingPool: ConstraintSolvingPool {
                 // but what about something thats simpler to encode: multi objective on taxi-cab distance?
                 // hmm, how do we grow the pool also? writing a grid (array of array) type in this dsl is going to be quite difficult.
 //                opt.MkMaximize()
-            }
 
+                val resolve = solver.check()
+
+                val model = solver.model
+
+                ctx.mkGoal()
+            }
             TODO()
         }
     }
@@ -71,7 +80,7 @@ class ContextConfigurator(val ctx: Context) {
     infix fun ArithExpr.gt(right: ArithExpr) = ctx.mkGt(this, right)
     infix fun ArithExpr.lt(right: ArithExpr) = ctx.mkLt(this, right)
 
-    fun Double.asZ3Literal() = ctx.mkReal(toString())
+    fun Double.asZ3Literal() = ctx.mkFPNumeral(this, ctx.mkFPSortDouble())
 }
 
 class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>): BabelParserBaseListener() {
@@ -113,6 +122,10 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
         }
     }
 
+    override fun exitVariable(ctx: VariableContext) {
+        exprs.push(vars(ctx.text))
+    }
+
     override fun exitLiteral(ctx: LiteralContext) {
         when {
             ctx.FLOAT() != null -> {
@@ -123,7 +136,7 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
                 exprs.push(z3.mkInt(ctx.text.toIntStrict()))
             }
             ctx.CONSTANT() != null -> {
-                TODO()
+                TODO() //irrational numbers e and pi.
             }
             else -> TODO()
         } as Any
@@ -152,3 +165,5 @@ fun String.toIntRatio(): Pair<Int, Int> {
 
     return numerator to denominator
 }
+
+private inline operator fun <K, V> Map<K, V>.invoke(key: K): V = getValue(key)
