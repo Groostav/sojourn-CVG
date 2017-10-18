@@ -13,9 +13,12 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
     companion object: ConstraintSolvingPoolFactory {
 
         init {
-            System.loadLibrary("Microsoft.Z3.dll")
-            System.loadLibrary("libz3.dll")
-            System.loadLibrary("libz3java.dll")
+            println("PATH is ${System.getenv("PATH")}")
+            println("java.library.path is ${System.getProperty("java.library.path")}")
+
+//            System.loadLibrary("msvcr110")
+            System.loadLibrary("libz3")
+            System.loadLibrary("libz3java")
         }
 
         override fun create(

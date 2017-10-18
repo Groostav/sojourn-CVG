@@ -1,0 +1,55 @@
+All of the below was done with -Djava.library.path=./deps/z3-4.5.0-win-x86
+
+Running
+
+```
+        init {
+            System.loadLibrary("libz3java")
+        }
+```
+        
+results in:
+
+```
+java.lang.UnsatisfiedLinkError: C:\Users\Geoff\Code\sojourn-CVG\deps\z3-4.5.0-win-x86\libz3java.dll: Can't find dependent libraries
+
+	at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+	at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1941)
+	at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1857)
+	at java.lang.Runtime.loadLibrary0(Runtime.java:870)
+	at java.lang.System.loadLibrary(System.java:1122)
+	at com.empowerops.sojourn.Z3SolvingPool.<clinit>(Z3SolvingPool.kt:17)
+    at ...
+```
+
+    
+Running
+
+```
+        init {
+            System.loadLibrary("libz3")
+            System.loadLibrary("libz3java")
+        }
+```
+
+results in _the tests going green_ (!!!)
+
+Running        
+        
+```        
+        init {
+            System.loadLibrary("msvcr110")
+            System.loadLibrary("libz3")
+            System.loadLibrary("libz3java")
+        }
+```
+
+results in:
+
+```
+java.lang.UnsatisfiedLinkError: C:\Users\Geoff\Code\sojourn-CVG\deps\z3-4.5.0-win-x86\libz3.dll: The specified procedure could not be found
+
+	at java.lang.ClassLoader$NativeLibrary.load(Native Method)
+	at java.lang.ClassLoader.loadLibrary0(ClassLoader.java:1941)
+    at ...
+```

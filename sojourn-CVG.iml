@@ -21,15 +21,6 @@
       </library>
     </orderEntry>
     <orderEntry type="module-library">
-      <library name="Kobalt: file://.\deps\z3-4.5.0-win-x86\libz3java.dll">
-        <CLASSES>
-          <root url="file://$MODULE_DIR$/deps/z3-4.5.0-win-x86/libz3java.dll" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
       <library name="Kobalt: file://.\deps\babel-0.7\babel-0.7.jar">
         <CLASSES>
           <root url="jar://$MODULE_DIR$/deps/babel-0.7/babel-0.7.jar!/" />
@@ -330,16 +321,6 @@
       <library name="Kobalt: com.google.protobuf:protobuf-java:jar:2.6.1">
         <CLASSES>
           <root url="jar://$USER_HOME$/.kobalt/cache/com/google/protobuf/protobuf-java/2.6.1/protobuf-java-2.6.1.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="library" name="com.microsoft.z3" level="project" />
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="file://$MODULE_DIR$/deps" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
