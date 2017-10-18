@@ -49,6 +49,13 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
                     val transcoder = BabelZ3TranscodingWalker(ctx, inputExprs)
                     recompiler.compile(constraint.expressionLiteral, transcoder)
 
+                    val newSatState = solver.check()
+
+                    if(newSatState != Status.SATISFIABLE){
+                        TODO("$constraint made constraint set $newSatState\n solver is:\n$solver")
+                        //we could simply drop this and do a guess-and-check
+                    }
+
                     solver.add(transcoder.transcodedExpr)
                 }
 
@@ -120,11 +127,18 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
     lateinit var transcodedExpr: BoolExpr
         private set
 
+    //TODO: null safety on push/pop
     val exprs: Deque<ArithExpr> = LinkedList()
 
     override fun exitExpr(ctx: BabelParser.ExprContext) {
 
         when {
+
+            ctx.negate() != null -> {
+                val child = exprs.pop()
+
+                exprs.push(z3.mkMul(z3.mkInt(-1), child))
+            }
 
             ctx.callsBinaryOp() -> {
                 val right = exprs.pop()
@@ -177,7 +191,6 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
 }
 
 operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
-
 
 fun String.toIntStrict(): Int = toInt().let { when(it) {
 //TODO, this should probably be smarted to allow for the literal max/min value number
