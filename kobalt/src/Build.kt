@@ -21,12 +21,9 @@ val p = project {
 
     dependencies {
 
-        runtime(file("deps/z3-4.5.0-win-x86/libz3java.dll"))
-
         compile(file("deps/z3-4.5.0-win-x86/com.microsoft.z3.jar"))
         compile(file("deps/babel-0.7/babel-0.7.jar"))
         compile(file("deps/babel-0.7/babel-0.7-sources.jar"))
-        compile(file("deps/z3-4.5.0-win-x86/libz3java.dll"))
 
         compile(
                 "org.jetbrains.kotlin:kotlin-reflect:${Versions.kotlin}",
@@ -53,6 +50,9 @@ val p = project {
     }
 
     test {
+
+        jvmArgs("-Djava.library.path=deps/z3-4.5.0-win-x86")
+
         include("**/*Fixture.class")
         include("**/*Benchmarks.class")
     }

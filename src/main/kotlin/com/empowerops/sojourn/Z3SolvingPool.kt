@@ -3,29 +3,31 @@ package com.empowerops.sojourn
 import com.empowerops.babel.*
 import com.empowerops.babel.BabelParser.*
 import com.microsoft.z3.*
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.immutableListOf
+import kotlinx.collections.immutable.*
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 import java.util.*
 
-class Z3SolvingPool(val results: ImmutableList<InputVector>): ConstraintSolvingPool {
-
-    override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>)
-            = results
+class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<BabelExpression>): ConstraintSolvingPool {
 
     companion object: ConstraintSolvingPoolFactory {
+
+        init {
+            System.loadLibrary("Microsoft.Z3.dll")
+            System.loadLibrary("libz3.dll")
+            System.loadLibrary("libz3java.dll")
+        }
 
         override fun create(
                 inputSpec: List<InputVariable>,
                 constraints: List<BabelExpression>
         ): Z3SolvingPool {
 
-            val recompiler = BabelCompiler()
 
             val ctx = Context()
-            val model = ctx.config {
+            return ctx.config {
 
+                val recompiler = BabelCompiler()
                 val solver: Solver = ctx.mkSolver()
 
                 //1: input bounds
@@ -47,37 +49,59 @@ class Z3SolvingPool(val results: ImmutableList<InputVector>): ConstraintSolvingP
                     solver.add(transcoder.transcodedExpr)
                 }
 
+                Z3SolvingPool(ctx, solver, constraints)
+            }
+        }
 
-                //or use a mkTupleSort? maybe just use an array?
-                val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
+    }
 
-                val p0 = ctx.mkConstDecl("p0", pointCtor)
+    override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
 
+        //TODO: use a distence metric + optimization, rather than simple model subtraction.
+        //or use a mkTupleSort? maybe just use an array?
+//                val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
+//                val p0 = ctx.mkConstDecl("p0", pointCtor)
 //                solver.add(ctx.mkEq(ctx.selec()))
 
-                val resolve = solver.check()
+        var resolved = solver.check()
 
-                solver.model
-            }
+        if(resolved != Status.SATISFIABLE) return immutableListOf()
 
-            println(model.toString())
+        val model = solver.model
+        val seed = model.buildInputVector()
 
-            val satisfyingInput = model.constDecls.map {
-                val interp = model.getConstInterp(it) as RatNum
-                val decimal = interp.numerator.int.toDouble() / interp.denominator.int
+        var results = immutableListOf(seed)
 
-                it.name.toString() to decimal
-            }.toMap()
+        for(index in 1 until pointCount){
+            model.constDecls
+                    .map { ctx.mkNot(ctx.mkEq(model.getConstInterp(it), ctx.mkRealConst(it.name))) }
+                    .forEach { solver.add(it) }
 
+            resolved = solver.check()
+            if(resolved != Status.SATISFIABLE) { break }
 
+            val nextResult = model.buildInputVector()
 
+            if ( ! constraints.passFor(nextResult)) { break }
 
-            val results = immutableListOf(satisfyingInput.toInputVector())
-
-            return Z3SolvingPool(results)
+            results += nextResult
         }
+
+        return results
     }
 }
+
+fun Model.buildInputVector(): InputVector = constDecls.map {
+    val interp = getConstInterp(it) as RatNum
+    val decimal = try { interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble() }
+    catch(ex: Z3Exception) {
+        val x = 4;
+        TODO()
+    }
+
+    it.name.toString() to decimal
+}.toMap().toInputVector()
+
 
 fun <R> Context.config(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 
