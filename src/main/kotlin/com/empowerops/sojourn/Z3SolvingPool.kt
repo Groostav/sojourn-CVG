@@ -4,17 +4,15 @@ import com.empowerops.babel.*
 import com.empowerops.babel.BabelParser.*
 import com.microsoft.z3.*
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.immutableListOf
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 import java.util.*
 
-class Z3SolvingPool: ConstraintSolvingPool {
+class Z3SolvingPool(val results: ImmutableList<InputVector>): ConstraintSolvingPool {
 
-    override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
-//        val x =
-        TODO()
-    }
-
+    override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>)
+            = results
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -25,7 +23,8 @@ class Z3SolvingPool: ConstraintSolvingPool {
 
             val recompiler = BabelCompiler()
 
-            Context().config {
+            val ctx = Context()
+            val model = ctx.config {
 
                 val solver: Solver = ctx.mkSolver()
 
@@ -33,8 +32,8 @@ class Z3SolvingPool: ConstraintSolvingPool {
                 val inputExprs = inputSpec.associate { input ->
                     val inputExpr = ctx.mkRealConst(input.name)
 
-                    solver.assertAndTrack(inputExpr gt input.lowerBound.asZ3Literal(), ctx.mkBoolConst("${input.name}_LB"))
-                    solver.assertAndTrack(inputExpr lt input.upperBound.asZ3Literal(), ctx.mkBoolConst("${input.name}_UB"))
+                    solver.add(inputExpr gt input.lowerBound.asZ3Literal())
+                    solver.add(inputExpr lt input.upperBound.asZ3Literal())
 
                     input.name to inputExpr
                 }
@@ -43,44 +42,50 @@ class Z3SolvingPool: ConstraintSolvingPool {
                 constraints.forEach { constraint ->
 
                     val transcoder = BabelZ3TranscodingWalker(ctx, inputExprs)
-                    constraint.walk(transcoder)
+                    recompiler.compile(constraint.expressionLiteral, transcoder)
 
-                    solver.assertAndTrack(transcoder.transcodedExpr, ctx.mkBoolConst(constraint.expressionLiteral))
+                    solver.add(transcoder.transcodedExpr)
                 }
 
-                //3: add objective function
-//                val intType = ctx.intSort
-//                val realtype = ctx.realSort
-//                val grid = ctx.mkConst("grid", ctx.mkArraySort(ctx.mkArraySort(TODO(), TODO()), TODO()), TODO())
 
-                // euclidean distance d = sqrt( (x0-xa)^2 + (y0-ya)^2 + ... + (z0-za)^2 )
-                // thats going to be realy hard to encode. Node that there is no "mkSum" exposed,
-                // so it would have to be done via a `mkForAll(inputs)`, and im not sure how to specificy the aggregator function.
+                //or use a mkTupleSort? maybe just use an array?
+                val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
 
-                // but what about something thats simpler to encode: multi objective on taxi-cab distance?
-                // hmm, how do we grow the pool also? writing a grid (array of array) type in this dsl is going to be quite difficult.
-//                opt.MkMaximize()
+                val p0 = ctx.mkConstDecl("p0", pointCtor)
+
+//                solver.add(ctx.mkEq(ctx.selec()))
 
                 val resolve = solver.check()
 
-                val model = solver.model
-
-                ctx.mkGoal()
+                solver.model
             }
-            TODO()
+
+            println(model.toString())
+
+            val satisfyingInput = model.constDecls.map {
+                val interp = model.getConstInterp(it) as RatNum
+                val decimal = interp.numerator.int.toDouble() / interp.denominator.int
+
+                it.name.toString() to decimal
+            }.toMap()
+
+
+
+
+            val results = immutableListOf(satisfyingInput.toInputVector())
+
+            return Z3SolvingPool(results)
         }
     }
 }
 
-fun <R> Context.config(mutator: ContextConfigurator.() -> R): R {
-    TODO()
-}
+fun <R> Context.config(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 
 class ContextConfigurator(val ctx: Context) {
-    infix fun ArithExpr.gt(right: ArithExpr) = ctx.mkGt(this, right)
-    infix fun ArithExpr.lt(right: ArithExpr) = ctx.mkLt(this, right)
+    infix fun ArithExpr.gt(right: ArithExpr): BoolExpr = ctx.mkGt(this, right)
+    infix fun ArithExpr.lt(right: ArithExpr): BoolExpr = ctx.mkLt(this, right)
 
-    fun Double.asZ3Literal() = ctx.mkFPNumeral(this, ctx.mkFPSortDouble())
+    fun Double.asZ3Literal(): RealExpr = ctx.mkFPToReal(ctx.mkFPNumeral(this, ctx.mkFPSortDouble()))
 }
 
 class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>): BabelParserBaseListener() {
@@ -88,15 +93,15 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
     lateinit var transcodedExpr: BoolExpr
         private set
 
-    val exprs: Deque<ArithExpr> = TODO()
+    val exprs: Deque<ArithExpr> = LinkedList()
 
     override fun exitExpr(ctx: BabelParser.ExprContext) {
 
         when {
 
             ctx.callsBinaryOp() -> {
-                val left = exprs.pop()
                 val right = exprs.pop()
+                val left = exprs.pop()
 
                 val transcoded = when(ctx[1]) {
                     is PlusContext -> z3.mkAdd(left, right)
@@ -144,9 +149,7 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
     }
 }
 
-fun BabelExpression.walk(listener: BabelParserListener): Unit = TODO()
-
-operator fun RuleContext.get(index: Int): ParseTree = TODO()
+operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
 
 
 fun String.toIntStrict(): Int = toInt().let { when(it) {

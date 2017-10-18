@@ -7,7 +7,7 @@ import kotlinx.collections.immutable.immutableHashMapOf
 import kotlinx.collections.immutable.toImmutableHashMap
 
 typealias InputVector = ImmutableMap<String, Double>
-fun InputVector() = immutableHashMapOf<String, Double>()
+inline fun InputVector(vararg inputValuesByName: Pair<String, Double>): InputVector = immutableHashMapOf(*inputValuesByName)
 inline fun Iterable<Pair<String, Double>>.toInputVector() = toMap().toImmutableHashMap()
 inline fun Map<String, Double>.toInputVector() = toImmutableHashMap()
 

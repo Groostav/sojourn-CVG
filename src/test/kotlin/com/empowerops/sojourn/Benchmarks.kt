@@ -69,7 +69,7 @@ class Benchmarks {
     val TopCorner200D = ConstraintSet(
             "Top-corner-200D",
             (1..200).map { "x$it" }.map { InputVariable(it, 10.0, 11.0) },
-            (1..200).map { "x$it >= 10.5" },
+            (1..200).map { "x$it > 10.5" },
             (1..200).associate { "x$it" to 10.75 }.toInputVector(),
             seeds = immutableListOf((1..200).associate { "x$it" to 10.75 }.toInputVector()),
             dispersion = 0.95, //TODO: this value doesnt seem correct at all. How is 200 ranges of [10.5..11] variance ~= 1.0?
@@ -132,6 +132,7 @@ class Benchmarks {
 
     @Test fun `sampling top-corner-200D inequalities`() = runTest(RandomSamplingPool1234, TopCorner200D)
     @Test fun `random walking top-corner-200D with one seed`() = runTest(RandomWalkingPool1234, TopCorner200D)
+    @Test fun `z3 top-corder-200D`() = runTest(Z3SolvingPool, TopCorner200D)
     @Test(enabled = false) fun `ibex top-corner-200D inequalities`() = runTest(ChocoIbexSolvingPool.Factory(), TopCorner200D)
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
