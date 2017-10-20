@@ -37,8 +37,8 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
                 val inputExprs = inputSpec.associate { input ->
                     val inputExpr = ctx.mkRealConst(input.name)
 
-                    solver.add(inputExpr gt input.lowerBound.asZ3Literal())
-                    solver.add(inputExpr lt input.upperBound.asZ3Literal())
+                    solver.add(inputExpr gt input.lowerBound.asZ3Ratio())
+                    solver.add(inputExpr lt input.upperBound.asZ3Ratio())
 
                     input.name to inputExpr
                 }
@@ -77,7 +77,7 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
 
         if(resolved != Status.SATISFIABLE) return immutableListOf()
 
-        val model = solver.model
+        var model = solver.model
         val seed = model.buildInputVector()
 
         var results = immutableListOf(seed)
@@ -90,6 +90,7 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
             resolved = solver.check()
             if(resolved != Status.SATISFIABLE) { break }
 
+            model = solver.model
             val nextResult = model.buildInputVector()
 
             if ( ! constraints.passFor(nextResult)) { break }
@@ -103,11 +104,7 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
 
 fun Model.buildInputVector(): InputVector = constDecls.map {
     val interp = getConstInterp(it) as RatNum
-    val decimal = try { interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble() }
-    catch(ex: Z3Exception) {
-        val x = 4;
-        TODO()
-    }
+    val decimal = interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble()
 
     it.name.toString() to decimal
 }.toMap().toInputVector()
@@ -120,6 +117,7 @@ class ContextConfigurator(val ctx: Context) {
     infix fun ArithExpr.lt(right: ArithExpr): BoolExpr = ctx.mkLt(this, right)
 
     fun Double.asZ3Literal(): RealExpr = ctx.mkFPToReal(ctx.mkFPNumeral(this, ctx.mkFPSortDouble()))
+    fun Double.asZ3Ratio(): ArithExpr = this.toString().toIntRatio().let { ctx.mkReal(it.first, it.second) }
 }
 
 class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>): BabelParserBaseListener() {
@@ -136,8 +134,7 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
 
             ctx.negate() != null -> {
                 val child = exprs.pop()
-
-                exprs.push(z3.mkMul(z3.mkInt(-1), child))
+                exprs.push(z3.mkUnaryMinus(child))
             }
 
             ctx.callsBinaryOp() -> {

@@ -79,20 +79,20 @@ class Benchmarks {
     val P118 = ConstraintSet(
             name = "P118",
             inputs = listOf(
-                    InputVariable("x1", lowerBound = 8.0, upperBound = 21.0),
-                    InputVariable("x2", lowerBound = 43.0, upperBound = 57.0),
-                    InputVariable("x3", lowerBound = 3.0, upperBound = 16.0),
+                    InputVariable("x1", lowerBound = 0.0, upperBound = 21.0),
+                    InputVariable("x2", lowerBound = 0.0, upperBound = 57.0),
+                    InputVariable("x3", lowerBound = 0.0, upperBound = 16.0),
                     InputVariable("x4", lowerBound = 0.0, upperBound = 90.0),
-                    InputVariable("x5", lowerBound = 0.0, upperBound = 12.0),
+                    InputVariable("x5", lowerBound = 0.0, upperBound = 120.0),
                     InputVariable("x6", lowerBound = 0.0, upperBound = 60.0),
                     InputVariable("x7", lowerBound = 0.0, upperBound = 90.0),
-                    InputVariable("x8", lowerBound = 0.0, upperBound = 12.0),
+                    InputVariable("x8", lowerBound = 0.0, upperBound = 120.0),
                     InputVariable("x9", lowerBound = 0.0, upperBound = 60.0),
                     InputVariable("x10", lowerBound = 0.0, upperBound = 90.0),
-                    InputVariable("x11", lowerBound = 0.0, upperBound = 12.0),
+                    InputVariable("x11", lowerBound = 0.0, upperBound = 120.0),
                     InputVariable("x12", lowerBound = 0.0, upperBound = 60.0),
                     InputVariable("x13", lowerBound = 0.0, upperBound = 90.0),
-                    InputVariable("x14", lowerBound = 0.0, upperBound = 12.0),
+                    InputVariable("x14", lowerBound = 0.0, upperBound = 120.0),
                     InputVariable("x15", lowerBound = 0.0, upperBound = 60.0)
             ),
             constraints = listOf(
@@ -117,7 +117,7 @@ class Benchmarks {
             ),
             centroid = immutableMapOf(),
             dispersion = Double.NaN,
-            targetSampleSize = -1
+            targetSampleSize = 5
     )
 
 

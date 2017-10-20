@@ -2,6 +2,7 @@ package com.empowerops.sojourn
 
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
+import java.lang.Math.PI
 
 class LanguageFixture {
 
@@ -41,5 +42,14 @@ class LanguageFixture {
         assertThat((1E20 as java.lang.Number).intValue()).isEqualTo(Integer.MAX_VALUE)
     }
 
+    @Test fun `remainder function functions usefully`(){
+
+        val x = (-3.0 * PI) + 0.5
+
+        val y = x % (2.0*PI)
+
+        assertThat(y).isEqualTo(-PI + 0.5)
+
+    }
 
 }
