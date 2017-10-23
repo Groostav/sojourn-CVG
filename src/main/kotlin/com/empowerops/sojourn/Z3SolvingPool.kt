@@ -172,14 +172,14 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
     override fun exitLiteral(ctx: LiteralContext) {
         when {
             ctx.FLOAT() != null -> {
-                val (numerator, denominator) = ctx.text.toIntRatio()
-                exprs.push(z3.mkReal(numerator, denominator))
+                exprs.push(z3.mkReal(ctx.FLOAT().text))
             }
             ctx.INTEGER() != null -> {
-                exprs.push(z3.mkInt(ctx.text.toIntStrict()))
+                exprs.push(z3.mkInt(ctx.text.toLong()))
             }
-            ctx.CONSTANT() != null -> {
-                TODO() //irrational numbers e and pi.
+            ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
+                "pi" -> exprs.push(z3.mkReal("pi"))
+                else -> TODO()
             }
             else -> TODO()
         } as Any
