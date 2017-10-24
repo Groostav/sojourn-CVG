@@ -155,7 +155,7 @@ class Benchmarks {
     @Test fun `z3 on P118`() = runTest(Z3SolvingPool, P118)
 
     @Test fun `sampling on tough-single-var`() = runTest(RandomSamplingPool1234, ToughSingleVar)
-    @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar)
+    @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
 
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
         //setup
@@ -181,7 +181,7 @@ class Benchmarks {
         if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
 
         //assert 2 -- red/green assertions
-//        assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
+        assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
 //        assertThat((actualCentroid vecMinus centroid).distance)
 //                .describedAs("distance between result centroid $actualCentroid\nand the expected centroid $centroid")
 //                .isLessThan(centroid.distance * fudgeFactor)

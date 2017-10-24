@@ -8,7 +8,12 @@ import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 import java.util.*
 
-class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<BabelExpression>): ConstraintSolvingPool {
+class Z3SolvingPool(
+        val ctx: Context,
+        val solver: Solver,
+        val inputs: List<InputVariable>,
+        val constraints: List<BabelExpression>
+): ConstraintSolvingPool {
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -31,14 +36,14 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
             return ctx.config {
 
                 val recompiler = BabelCompiler()
-                val solver: Solver = ctx.mkSolver()
+                val solver = ctx.mkSolver(ctx.mkTactic("qfnra-nlsat"))
 
                 //1: input bounds
                 val inputExprs = inputSpec.associate { input ->
                     val inputExpr = ctx.mkRealConst(input.name)
 
-                    solver.add(inputExpr gt input.lowerBound.asZ3Ratio())
-                    solver.add(inputExpr lt input.upperBound.asZ3Ratio())
+                    solver.add(inputExpr gt input.lowerBound.asZ3Real())
+                    solver.add(inputExpr lt input.upperBound.asZ3Real())
 
                     input.name to inputExpr
                 }
@@ -56,10 +61,10 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
                         //we could simply drop this and do a guess-and-check
                     }
 
-                    solver.add(transcoder.transcodedExpr)
+                    transcoder.requirements.forEach { solver.add(it) }
                 }
 
-                Z3SolvingPool(ctx, solver, constraints)
+                Z3SolvingPool(ctx, solver, inputSpec, constraints)
             }
         }
 
@@ -75,25 +80,33 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
 
         var resolved = solver.check()
 
-        if(resolved != Status.SATISFIABLE) return immutableListOf()
+        if(resolved == Status.UNSATISFIABLE) return immutableListOf()
 
         var model = solver.model
-        val seed = model.buildInputVector()
+        val seed = model.buildInputVector(inputs)
 
+        if ( ! constraints.passFor(seed)) {
+            return immutableListOf()
+        }
         var results = immutableListOf(seed)
 
+//        FAIL; //not sure, model looks ok but under the debugger the solver just magically shifts.
+        //problem is that the temp in a sqrt can be negative!@
         for(index in 1 until pointCount){
             model.constDecls
+                    .filter { it.name.toString() in inputs.map { it.name} }
                     .map { ctx.mkNot(ctx.mkEq(model.getConstInterp(it), ctx.mkRealConst(it.name))) }
                     .forEach { solver.add(it) }
 
             resolved = solver.check()
-            if(resolved != Status.SATISFIABLE) { break }
+            if(resolved == Status.UNSATISFIABLE) { break }
 
             model = solver.model
-            val nextResult = model.buildInputVector()
+            val nextResult = model.buildInputVector(inputs)
 
-            if ( ! constraints.passFor(nextResult)) { break }
+            if ( ! constraints.passFor(nextResult)) {
+                break
+            }
 
             results += nextResult
         }
@@ -102,12 +115,24 @@ class Z3SolvingPool(val ctx: Context, val solver: Solver, val constraints: List<
     }
 }
 
-fun Model.buildInputVector(): InputVector = constDecls.map {
-    val interp = getConstInterp(it) as RatNum
-    val decimal = interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble()
-
-    it.name.toString() to decimal
-}.toMap().toInputVector()
+fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecls
+        .map {
+            it.name.toString() to getConstInterp(it)
+        }
+        .filter {
+            it.first in inputs.map { it.name }
+        }
+        .map {
+            val interp = it.second
+            val decimal = when(interp){
+                is RatNum -> interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble()
+                is IntNum -> interp.bigInteger.toDouble()
+                else -> TODO()
+            }
+            it.first to decimal
+        }
+        .toMap()
+        .toInputVector()
 
 
 fun <R> Context.config(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
@@ -116,37 +141,68 @@ class ContextConfigurator(val ctx: Context) {
     infix fun ArithExpr.gt(right: ArithExpr): BoolExpr = ctx.mkGt(this, right)
     infix fun ArithExpr.lt(right: ArithExpr): BoolExpr = ctx.mkLt(this, right)
 
-    fun Double.asZ3Literal(): RealExpr = ctx.mkFPToReal(ctx.mkFPNumeral(this, ctx.mkFPSortDouble()))
-    fun Double.asZ3Ratio(): ArithExpr = this.toString().toIntRatio().let { ctx.mkReal(it.first, it.second) }
+    fun Double.asZ3Real(): ArithExpr = ctx.mkReal(this.toString())
 }
 
 class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>): BabelParserBaseListener() {
 
-    lateinit var transcodedExpr: BoolExpr
-        private set
+    var requirements: List<BoolExpr> = emptyList()
 
     //TODO: null safety on push/pop
     val exprs: Deque<ArithExpr> = LinkedList()
 
     override fun exitExpr(ctx: BabelParser.ExprContext) {
 
-        when {
+        val transcoded = when {
+
+            ctx.literal() != null || ctx.variable() != null -> null
 
             ctx.negate() != null -> {
                 val child = exprs.pop()
-                exprs.push(z3.mkUnaryMinus(child))
+                z3.mkUnaryMinus(child)
             }
 
+            ctx.unaryFunction() != null -> {
+                val arg = exprs.pop()
+
+                when(ctx[0].text) {
+                    "sqrt" -> {
+                        val rooted = z3.mkAnonRealConst()
+                        requirements += z3.mkGt(rooted, z3.mkReal("0.0"))
+                        requirements += z3.mkEq(arg, z3.mkMul(rooted, rooted))
+                        rooted
+                    }
+                    "cbrt" -> {
+                        val tripleRooted = z3.mkAnonRealConst()
+                        requirements += z3.mkEq(arg, z3.mkMul(tripleRooted, tripleRooted, tripleRooted))
+                        tripleRooted
+                    }
+                    //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
+                    "log" -> {
+//                        val logged = z3.mkAnonRealConst()
+                        val logged = z3.mkIntConst("T_${tempId++}")
+                        requirements += z3.mkEq(arg, z3.mkPower(z3.mkInt("10"), logged))
+                        logged
+                    }
+                    "ln" -> {
+                        val lawned = z3.mkAnonRealConst()
+                        requirements += z3.mkEq(arg, z3.mkPower(z3.mkReal(Math.E.toString()), lawned))
+                        lawned
+                    }
+                    else -> TODO()
+                }
+            }
             ctx.callsBinaryOp() -> {
                 val right = exprs.pop()
                 val left = exprs.pop()
 
-                val transcoded = when(ctx[1]) {
+                when(ctx[1]) {
                     is PlusContext -> z3.mkAdd(left, right)
                     is MinusContext -> z3.mkSub(left, right)
                     is MultContext -> z3.mkMul(left, right)
                     is DivContext -> z3.mkDiv(left, right)
                     is ModContext -> TODO() //z3 only defines mod for ints
+                    is RaiseContext -> z3.mkPower(left, right)
 
                     is GtContext -> z3.mkGt(left, right)
                     is GteqContext -> z3.mkGe(left, right)
@@ -155,13 +211,15 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
 
                     else -> TODO()
                 }
-
-                when (transcoded){
-                    is ArithExpr -> exprs.push(transcoded)
-                    is BoolExpr -> transcodedExpr = transcoded
-                    else -> TODO()
-                }
             }
+            else -> TODO("op for ${ctx.text}")
+        }
+
+        when (transcoded){
+            null -> {}
+            is ArithExpr -> exprs.push(transcoded)
+            is BoolExpr -> requirements += transcoded
+            else -> TODO()
         }
     }
 
@@ -170,40 +228,23 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
     }
 
     override fun exitLiteral(ctx: LiteralContext) {
-        when {
-            ctx.FLOAT() != null -> {
-                exprs.push(z3.mkReal(ctx.FLOAT().text))
-            }
-            ctx.INTEGER() != null -> {
-                exprs.push(z3.mkInt(ctx.text.toLong()))
-            }
+        exprs.push(when {
+            ctx.FLOAT() != null -> z3.mkReal(ctx.FLOAT().text)
+            ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
             ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
-                "pi" -> exprs.push(z3.mkReal("pi"))
+                "pi" -> z3.mkReal(Math.PI.toString())
+                "e" -> z3.mkReal(Math.E.toString())
                 else -> TODO()
             }
             else -> TODO()
-        } as Any
+        })
 
     }
 }
 
 operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
 
-fun String.toIntStrict(): Int = toInt().let { when(it) {
-//TODO, this should probably be smarted to allow for the literal max/min value number
-    Integer.MAX_VALUE -> throw NumberFormatException("overflow representing $this as integer")
-    Integer.MIN_VALUE -> throw NumberFormatException("underflow representing $this as integer")
-    else -> it
-}}
-
-fun String.toIntRatio(): Pair<Int, Int> {
-    val numerator = replace(".", "").toIntStrict()
-    val denominator = when {
-        '.' !in this -> 1
-        else -> Math.pow(10.0, 0.0+length - indexOf('.') - 1).toInt()
-    }
-
-    return numerator to denominator
-}
-
 private inline operator fun <K, V> Map<K, V>.invoke(key: K): V = getValue(key)
+
+private var tempId: Int = 0
+private fun Context.mkAnonRealConst(): RealExpr = mkRealConst("T_${tempId++}")
