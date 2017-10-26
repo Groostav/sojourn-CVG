@@ -1,0 +1,56 @@
+//view-diffing logic
+
+val models: List<Model>
+val controllers: List<Controller>
+val controllerFactory: (Model) -> Controller
+
+var index = 0
+for (model in models){
+
+  if(controllers[index].view matches model) continue;
+  
+  if(controllers[index+1]?.view matches model ?: false) {
+    controllers.removeAt(index)
+    index -= 1
+    continue
+  }
+  
+  controllers.insertAt(index, controllerFactory(model))
+}
+
+//symbolic representation as equality constraints:
+//IE constraint solver: solve the path where the views all match, `removeAt` and `insertAt` never called
+
+models = m1, m2, m3 ... m10
+controllers = v1, v2, v3, ... v10
+
+const raints:
+//could stipulate bounds from 0.0 .. 10.0 just to model with real numbers?
+
+v1 < v2 && v2 < v3 && v3 < v4 ... v9 < v10
+m1 < m2 && m2 < m3 && ...
+
+m1 == v1
+m2 == v2
+...
+m10 == v10
+
+//symbolic case where we remove a controller at element 3, insert one at 7
+models = m1, m2, ... m10
+controllers = v1, v2, ... v10
+
+const raints:
+v1 < v2 && v2 < v3 && v3 < v4 ... v9 < v10
+m1 < m2 && m2 < m3 && ...
+
+m1 == v1
+m2 == v2
+m3 != v3 //maybe express as v3 > m3?
+m3 == v4
+m4 == v5
+m5 == v6
+m6 != v7 //again, maybe v3 < m6?
+m7 == v7
+m8 == v8
+m9 == v9
+m10 == v10

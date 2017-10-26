@@ -2,6 +2,7 @@ package com.empowerops.sojourn
 
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
+import com.empowerops.sojourn.toIntRatio
 import java.lang.Math.PI
 
 class LanguageFixture {
@@ -49,7 +50,35 @@ class LanguageFixture {
         val y = x % (2.0*PI)
 
         assertThat(y).isEqualTo(-PI + 0.5)
-
     }
+
+    @Test fun `things`(){
+        Math.E.toString().toIntRatio()
+    }
+
+    @Test fun `when using operator overloading should give you traditional prescedence`(){
+        val (a, b, c) = listOf("A", "B", "C").map { MyObj(it) }
+
+        val result = a + b * c
+
+        assertThat(result.str).isEqualTo("(A plus (B times C))")
+    }
+
+    data class MyObj(val str: String)
+    operator fun MyObj.plus(right: MyObj) = MyObj("($str plus ${right.str})")
+    operator fun MyObj.times(right: MyObj) = MyObj("($str times ${right.str})")
+
+    @Test fun `when using extended operator overloading sho                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    uld give intuitive prescedence`(){
+        val (a, b, c) = listOf("A", "B", "C").map { MyObj(it) }
+
+        val result = a + b gt c
+
+        assertThat(result.str).isEqualTo("((A plssus B) gt C)")
+    }
+
+    //operator fun MyObj.compareTo(right: MyObj): MyObj //no good, compareTo must return an Int, which is too bad.
+    data class MyBooleanObj(val str: String)
+    infix fun MyObj.gt(right: MyObj) = MyBooleanObj("($str gt ${right.str})")
+
 
 }
