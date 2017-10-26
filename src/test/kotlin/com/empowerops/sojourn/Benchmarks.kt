@@ -76,6 +76,23 @@ class Benchmarks {
             targetSampleSize = 200
     )
 
+    val ToughSingleVar = ConstraintSet(
+            name = "Small single var",
+            inputs = listOf(
+                    InputVariable("x", -3.0, +1.0),
+                    InputVariable("y", -1.0, +1.0)
+            ),
+            constraints = listOf(
+                    //punched this into wolfram, pulls up a very small region.
+                    //y < sin(x*pi) && y > 1.1* sin(x*pi-0.05) && x > -3.0 && x < 1
+                    "y < sin(x*pi)",
+                    "y > 1.1*sin(x*pi-0.5)"
+            ),
+            centroid = InputVector("x" to 0.0, "y" to 0.0),
+            dispersion = 1.0,
+            targetSampleSize = 1000
+    )
+
     val P118 = ConstraintSet(
             name = "P118",
             inputs = listOf(
@@ -124,11 +141,11 @@ class Benchmarks {
 
     @Test fun `sampling sanity check`() = runTest(RandomSamplingPool1234, SanityCheck)
     @Test fun `random walking sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
-    @Test fun `z3 sanity check`() = runTest(Z3SolvingPool, SanityCheck)
+    @Test fun `z3 sanity check`() = runTest(Z3SolvingPool, SanityCheck.copy(targetSampleSize = 100))
 
     @Test fun `sampling braindead inequalities`() = runTest(RandomSamplingPool1234, BriandeadInequalitySet)
     @Test fun `random walking brainded inequalities with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
-    @Test fun `z3 braindead inequalities`() = runTest(Z3SolvingPool, BriandeadInequalitySet)
+    @Test fun `z3 braindead inequalities`() = runTest(Z3SolvingPool, BriandeadInequalitySet.copy(targetSampleSize = 100))
 
     @Test fun `sampling top-corner-200D inequalities`() = runTest(RandomSamplingPool1234, TopCorner200D)
     @Test fun `random walking top-corner-200D with one seed`() = runTest(RandomWalkingPool1234, TopCorner200D)
@@ -136,6 +153,9 @@ class Benchmarks {
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
     @Test fun `z3 on P118`() = runTest(Z3SolvingPool, P118)
+
+    @Test fun `sampling on tough-single-var`() = runTest(RandomSamplingPool1234, ToughSingleVar)
+    @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
 
     private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
         //setup
@@ -161,7 +181,7 @@ class Benchmarks {
         if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
 
         //assert 2 -- red/green assertions
-//        assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
+        assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
 //        assertThat((actualCentroid vecMinus centroid).distance)
 //                .describedAs("distance between result centroid $actualCentroid\nand the expected centroid $centroid")
 //                .isLessThan(centroid.distance * fudgeFactor)
