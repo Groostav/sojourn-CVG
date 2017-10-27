@@ -21,9 +21,23 @@ class Z3SolvingPool(
             println("PATH is ${System.getenv("PATH")}")
             println("java.library.path is ${System.getProperty("java.library.path")}")
 
-//            System.loadLibrary("msvcr110")
+//            System.loadLibrary("msvcr110") //TBD: preloading this things deps should mean we can get it off the PATH.
             System.loadLibrary("libz3")
             System.loadLibrary("libz3java")
+        }
+
+        fun findProblemConstraints(
+                inputSpec: List<InputVariable>,
+                conjunction: List<BabelExpression>
+        ): List<BabelExpression> {
+
+
+            TODO("add constraints one-by-one, " +
+                    "if solver.check() gives UNSAT," +
+                    " then remove them one-by-one until you have a small subset of unsat constraints."
+            )
+
+
         }
 
         override fun create(
@@ -31,16 +45,15 @@ class Z3SolvingPool(
                 constraints: List<BabelExpression>
         ): Z3SolvingPool {
 
-
             val ctx = Context()
-            return ctx.config {
+            return ctx.configure {
 
                 val recompiler = BabelCompiler()
-                val solver = ctx.mkSolver(ctx.mkTactic("qfnra-nlsat"))
+                val solver = Solver(Tactic("qfnra-nlsat"))
 
                 //1: input bounds
                 val inputExprs = inputSpec.associate { input ->
-                    val inputExpr = ctx.mkRealConst(input.name)
+                    val inputExpr = Real(input.name)
 
                     solver.add(inputExpr gt input.lowerBound.asZ3Real())
                     solver.add(inputExpr lt input.upperBound.asZ3Real())
@@ -61,7 +74,7 @@ class Z3SolvingPool(
                         //we could simply drop this and do a guess-and-check
                     }
 
-                    transcoder.requirements.forEach { solver.add(it) }
+                    transcoder.requirements.forEach { solver += it }
                 }
 
                 Z3SolvingPool(ctx, solver, inputSpec, constraints)
@@ -90,28 +103,30 @@ class Z3SolvingPool(
         }
         var results = immutableListOf(seed)
 
-//        FAIL; //not sure, model looks ok but under the debugger the solver just magically shifts.
-        //problem is that the temp in a sqrt can be negative!@
-        for(index in 1 until pointCount){
-            model.constDecls
-                    .filter { it.name.toString() in inputs.map { it.name} }
-                    .map { ctx.mkNot(ctx.mkEq(model.getConstInterp(it), ctx.mkRealConst(it.name))) }
-                    .forEach { solver.add(it) }
+        ctx.configure {
+            //        FAIL; //not sure, model looks ok but under the debugger the solver just magically shifts.
+            //problem is that the temp in a sqrt can be negative!@
+            for(index in 1 until pointCount){
+                model.constDecls
+                        .filter { it.name.toString() in inputs.map { it.name} }
+                        .map { ! (model.getConstInterp(it) eq Real(it.name)) }
+                        .forEach { solver.add(it) }
 
-            resolved = solver.check()
-            if(resolved == Status.UNSATISFIABLE) { break }
+                resolved = solver.check()
+                if(resolved == Status.UNSATISFIABLE) { break }
 
-            model = solver.model
-            val nextResult = model.buildInputVector(inputs)
+                model = solver.model
+                val nextResult = model.buildInputVector(inputs)
 
-            if ( ! constraints.passFor(nextResult)) {
-                break
+                if ( ! constraints.passFor(nextResult)) {
+                    break
+                }
+
+                results += nextResult
             }
 
-            results += nextResult
+            return results
         }
-
-        return results
     }
 }
 
@@ -134,16 +149,6 @@ fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecl
         .toMap()
         .toInputVector()
 
-
-fun <R> Context.config(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
-
-class ContextConfigurator(val ctx: Context) {
-    infix fun ArithExpr.gt(right: ArithExpr): BoolExpr = ctx.mkGt(this, right)
-    infix fun ArithExpr.lt(right: ArithExpr): BoolExpr = ctx.mkLt(this, right)
-
-    fun Double.asZ3Real(): ArithExpr = ctx.mkReal(this.toString())
-}
-
 class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>): BabelParserBaseListener() {
 
     var requirements: List<BoolExpr> = emptyList()
@@ -151,7 +156,7 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
     //TODO: null safety on push/pop
     val exprs: Deque<ArithExpr> = LinkedList()
 
-    override fun exitExpr(ctx: BabelParser.ExprContext) {
+    override fun exitExpr(ctx: BabelParser.ExprContext) = z3.configure {
 
         val transcoded = when {
 
@@ -168,25 +173,26 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
                 when(ctx[0].text) {
                     "sqrt" -> {
                         val rooted = z3.mkAnonRealConst()
-                        requirements += z3.mkGt(rooted, z3.mkReal("0.0"))
-                        requirements += z3.mkEq(arg, z3.mkMul(rooted, rooted))
+                        requirements += rooted gt Real("0.0")
+                        requirements += arg eq rooted * rooted
                         rooted
                     }
                     "cbrt" -> {
                         val tripleRooted = z3.mkAnonRealConst()
-                        requirements += z3.mkEq(arg, z3.mkMul(tripleRooted, tripleRooted, tripleRooted))
+                        requirements += arg eq tripleRooted * tripleRooted * tripleRooted
                         tripleRooted
                     }
                     //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
                     "log" -> {
 //                        val logged = z3.mkAnonRealConst()
-                        val logged = z3.mkIntConst("T_${tempId++}")
-                        requirements += z3.mkEq(arg, z3.mkPower(z3.mkInt("10"), logged))
+                        //TODO: are we sure ints make this more solvable?
+                        val logged = Int("T_${tempId++}")
+                        requirements += arg eq (10.z pow logged)
                         logged
                     }
                     "ln" -> {
                         val lawned = z3.mkAnonRealConst()
-                        requirements += z3.mkEq(arg, z3.mkPower(z3.mkReal(Math.E.toString()), lawned))
+                        requirements += arg eq (E pow lawned)
                         lawned
                     }
                     else -> TODO()
@@ -197,17 +203,17 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
                 val left = exprs.pop()
 
                 when(ctx[1]) {
-                    is PlusContext -> z3.mkAdd(left, right)
-                    is MinusContext -> z3.mkSub(left, right)
-                    is MultContext -> z3.mkMul(left, right)
-                    is DivContext -> z3.mkDiv(left, right)
-                    is ModContext -> TODO() //z3 only defines mod for ints
-                    is RaiseContext -> z3.mkPower(left, right)
+                    is PlusContext -> left + right
+                    is MinusContext -> left - right
+                    is MultContext -> left * right
+                    is DivContext -> left / right
+                    is ModContext -> left % right
+                    is RaiseContext -> left pow right
 
-                    is GtContext -> z3.mkGt(left, right)
-                    is GteqContext -> z3.mkGe(left, right)
-                    is LtContext -> z3.mkLt(left, right)
-                    is LteqContext -> z3.mkLe(left, right)
+                    is GtContext -> left gt right
+                    is GteqContext -> left gte right
+                    is LtContext -> left lt right
+                    is LteqContext -> left lte right
 
                     else -> TODO()
                 }
@@ -227,13 +233,13 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
         exprs.push(vars(ctx.text))
     }
 
-    override fun exitLiteral(ctx: LiteralContext) {
+    override fun exitLiteral(ctx: LiteralContext) = z3.configure {
         exprs.push(when {
             ctx.FLOAT() != null -> z3.mkReal(ctx.FLOAT().text)
             ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
             ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
-                "pi" -> z3.mkReal(Math.PI.toString())
-                "e" -> z3.mkReal(Math.E.toString())
+                "pi" -> PI
+                "e" -> E
                 else -> TODO()
             }
             else -> TODO()

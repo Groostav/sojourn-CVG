@@ -2,7 +2,6 @@ package com.empowerops.sojourn
 
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
-import com.empowerops.sojourn.toIntRatio
 import java.lang.Math.PI
 
 class LanguageFixture {
@@ -50,10 +49,6 @@ class LanguageFixture {
         val y = x % (2.0*PI)
 
         assertThat(y).isEqualTo(-PI + 0.5)
-    }
-
-    @Test fun `things`(){
-        Math.E.toString().toIntRatio()
     }
 
     @Test fun `when using operator overloading should give you traditional prescedence`(){
