@@ -18,6 +18,24 @@ class Z3SolvingPool(
     private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
     private val inputExprs: Map<String, RealExpr>
 
+    val _mod by lazy { z3.configure { Function("mod", realSort, realSort, returnType = realSort) } }
+    val mod: FuncDecl get() = _mod.also { installMod() }
+
+    val _quot by lazy { z3.configure { Function("quot", realSort, realSort, returnType = realSort) } }
+    val quot: FuncDecl get() = _quot.also { installMod() }
+
+    private fun installMod() = z3.configure {
+
+        val (X, k) = Reals("x", "y")
+
+        solver.add (
+                (X neq 0.zr) implies (0.zr lte _mod(X, k)),
+                (k gt 0.zr) implies (k gt _mod(X, k)),
+                (k gt 0.zr) implies (-k gt _mod(X, k)),
+                (k neq 0.zr) implies (k * _quot(X, k) + _mod(X, k) eq X)
+        )
+    }
+
     companion object: ConstraintSolvingPoolFactory {
 
         init {
@@ -52,10 +70,12 @@ class Z3SolvingPool(
 
     private fun checkConstraints() = z3.configure {
 
+        require(solver.check() == Status.SATISFIABLE) { "before adding constraints solver SAT is ${solver.check()}:\n $solver " }
+
         //2: transcode constraint expressions
         constraints.forEach { constraint ->
 
-            val transcoder = BabelZ3TranscodingWalker(this@Z3SolvingPool.z3, inputExprs)
+            val transcoder = BabelZ3TranscodingWalker()
             recompiler.compile(constraint.expressionLiteral, transcoder)
 
             val newSatState = solver.check()
@@ -68,23 +88,6 @@ class Z3SolvingPool(
             transcoder.requirements.forEach { solver += it }
         }
 
-    }
-
-    val mod: FuncDecl = z3.configure { Function("mod", realSort, realSort, returnType = realSort) }
-    val quot: FuncDecl = z3.configure { Function("quot", realSort, realSort, returnType = realSort) }
-
-    init {
-//        ctx.configure {
-//
-//            val (X, k) = Reals("x", "y")
-//
-//            solver.add (
-//                    (X neq 0.z) implies (0.z lte mod(X, k)),
-//                    (k gt 0.z) implies (k gt mod(X, k)),
-//                    (k gt 0.z) implies (-k gt mod(X, k)),
-//                    (k neq 0.z) implies (k * quot(X, k) + mod(X, k) eq X)
-//            )
-//        }
     }
 
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
@@ -132,6 +135,131 @@ class Z3SolvingPool(
             return results
         }
     }
+
+    inner class BabelZ3TranscodingWalker: BabelParserBaseListener() {
+
+        var requirements: List<BoolExpr> = emptyList()
+
+        //TODO: null safety on push/pop
+        val exprs: Deque<ArithExpr> = LinkedList()
+
+        override fun exitExpr(ctx: BabelParser.ExprContext) = z3.configure {
+
+            val transcoded = when {
+
+                ctx.literal() != null || ctx.variable() != null -> null
+
+                ctx.negate() != null -> {
+                    val child = exprs.pop()
+                    z3.mkUnaryMinus(child)
+                }
+
+                ctx.unaryFunction() != null -> {
+                    val arg = exprs.pop()
+
+                    when(ctx[0].text) {
+                        "sqrt" -> {
+                            val rooted = z3.mkAnonRealConst()
+                            requirements += rooted gt Real("0.0")
+                            requirements += arg eq rooted * rooted
+                            rooted
+                        }
+                        "cbrt" -> {
+                            val tripleRooted = z3.mkAnonRealConst()
+                            requirements += arg eq tripleRooted * tripleRooted * tripleRooted
+                            tripleRooted
+                        }
+                    //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
+                        "log" -> {
+//                        val logged = z3.mkAnonRealConst()
+                            //TODO: are we sure ints make this more solvable?
+                            val logged = Int("T_${tempId++}")
+                            requirements += arg eq (10.z pow logged)
+                            logged
+                        }
+                        "ln" -> {
+                            val lawned = z3.mkAnonRealConst()
+                            requirements += arg eq (E pow lawned)
+                            lawned
+                        }
+                        else -> TODO()
+                    }
+                }
+                ctx.callsBinaryOp() -> {
+                    val right = exprs.pop()
+                    val left = exprs.pop()
+
+                    when(ctx[1]) {
+                        is PlusContext -> left + right
+                        is MinusContext -> left - right
+                        is MultContext -> left * right
+                        is DivContext -> left / right
+                        is ModContext -> mod(left, right)
+                        is RaiseContext -> left pow right
+
+                        is GtContext -> left gt right
+                        is GteqContext -> left gte right
+                        is LtContext -> left lt right
+                        is LteqContext -> left lte right
+
+                        else -> TODO()
+                    }
+                }
+                else -> TODO("op for ${ctx.text}")
+            }
+
+            when (transcoded){
+                null -> {}
+                is ArithExpr -> exprs.push(transcoded)
+                is BoolExpr -> requirements += transcoded
+                else -> TODO()
+            }
+        }
+
+        override fun exitVariable(ctx: VariableContext) {
+            exprs.push(inputExprs(ctx.text))
+        }
+
+        override fun exitLiteral(ctx: LiteralContext) = z3.configure {
+            exprs.push(when {
+                ctx.FLOAT() != null -> z3.mkReal(ctx.FLOAT().text)
+                ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
+                ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
+                    "pi" -> PI
+//                    val exprCtor = Expr::class.staticFunctions
+//                        .single { it.name == "create" && it.parameters.size == 2 }
+//                        .apply { isAccessible = true }
+//                    val nCtxMember = Context::class.members
+//                        .single { it.name == "nCtx" }
+//                        .apply { isAccessible = true }
+//                    val nCtxPointer = nCtxMember.call(z3) as Long
+//                    val nativePiPointer = Native.rcfMkPi(nCtxPointer)
+//                    exprCtor.call(z3, nativePiPointer) as ArithExpr
+                    "e" -> E
+                    else -> TODO()
+                }
+                else -> TODO()
+            })
+        }
+
+//    mod = z3.Function('mod', z3.RealSort(),z3.RealSort(), z3.RealSort())
+//    quot = z3.Function('quot', z3.RealSort(),z3.RealSort(), z3.IntSort())
+//    s = z3.Solver()
+//
+//
+//    def mk_mod_axioms(X,k):
+//    s.add(Implies(k != 0, 0 <= mod(X,k)),
+//    Implies(k > 0, mod(X,k) < k),
+//    Implies(k < 0, mod(X,k) < -k),
+//    Implies(k != 0, k*quot(X,k) + mod(X,k) == X))
+//
+//    x, y = z3.Reals('x y')
+//
+//    mk_mod_axioms(x, 3)
+//    mk_mod_axioms(y, 5)
+
+    }
+
 }
 
 fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecls
@@ -153,132 +281,6 @@ fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecl
         .toMap()
         .toInputVector()
 
-inner class BabelZ3TranscodingWalker(
-        val z3: Context,
-        val vars: Map<String, RealExpr>
-): BabelParserBaseListener() {
-
-    var requirements: List<BoolExpr> = emptyList()
-
-    //TODO: null safety on push/pop
-    val exprs: Deque<ArithExpr> = LinkedList()
-
-    override fun exitExpr(ctx: BabelParser.ExprContext) = z3.configure {
-
-        val transcoded = when {
-
-            ctx.literal() != null || ctx.variable() != null -> null
-
-            ctx.negate() != null -> {
-                val child = exprs.pop()
-                z3.mkUnaryMinus(child)
-            }
-
-            ctx.unaryFunction() != null -> {
-                val arg = exprs.pop()
-
-                when(ctx[0].text) {
-                    "sqrt" -> {
-                        val rooted = z3.mkAnonRealConst()
-                        requirements += rooted gt Real("0.0")
-                        requirements += arg eq rooted * rooted
-                        rooted
-                    }
-                    "cbrt" -> {
-                        val tripleRooted = z3.mkAnonRealConst()
-                        requirements += arg eq tripleRooted * tripleRooted * tripleRooted
-                        tripleRooted
-                    }
-                    //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
-                    "log" -> {
-//                        val logged = z3.mkAnonRealConst()
-                        //TODO: are we sure ints make this more solvable?
-                        val logged = Int("T_${tempId++}")
-                        requirements += arg eq (10.z pow logged)
-                        logged
-                    }
-                    "ln" -> {
-                        val lawned = z3.mkAnonRealConst()
-                        requirements += arg eq (E pow lawned)
-                        lawned
-                    }
-                    else -> TODO()
-                }
-            }
-            ctx.callsBinaryOp() -> {
-                val right = exprs.pop()
-                val left = exprs.pop()
-
-                when(ctx[1]) {
-                    is PlusContext -> left + right
-                    is MinusContext -> left - right
-                    is MultContext -> left * right
-                    is DivContext -> left / right
-                    is ModContext -> mod(left, right)
-                    is RaiseContext -> left pow right
-
-                    is GtContext -> left gt right
-                    is GteqContext -> left gte right
-                    is LtContext -> left lt right
-                    is LteqContext -> left lte right
-
-                    else -> TODO()
-                }
-            }
-            else -> TODO("op for ${ctx.text}")
-        }
-
-        when (transcoded){
-            null -> {}
-            is ArithExpr -> exprs.push(transcoded)
-            is BoolExpr -> requirements += transcoded
-            else -> TODO()
-        }
-    }
-
-    override fun exitVariable(ctx: VariableContext) {
-        exprs.push(vars(ctx.text))
-    }
-
-    override fun exitLiteral(ctx: LiteralContext) = z3.configure {
-        exprs.push(when {
-            ctx.FLOAT() != null -> z3.mkReal(ctx.FLOAT().text)
-            ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
-            ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
-                "pi" -> PI
-//                    val exprCtor = Expr::class.staticFunctions
-//                        .single { it.name == "create" && it.parameters.size == 2 }
-//                        .apply { isAccessible = true }
-//                    val nCtxMember = Context::class.members
-//                        .single { it.name == "nCtx" }
-//                        .apply { isAccessible = true }
-//                    val nCtxPointer = nCtxMember.call(z3) as Long
-//                    val nativePiPointer = Native.rcfMkPi(nCtxPointer)
-//                    exprCtor.call(z3, nativePiPointer) as ArithExpr
-                "e" -> E
-                else -> TODO()
-            }
-            else -> TODO()
-        })
-    }
-
-//    mod = z3.Function('mod', z3.RealSort(),z3.RealSort(), z3.RealSort())
-//    quot = z3.Function('quot', z3.RealSort(),z3.RealSort(), z3.IntSort())
-//    s = z3.Solver()
-//
-//
-//    def mk_mod_axioms(X,k):
-//    s.add(Implies(k != 0, 0 <= mod(X,k)),
-//    Implies(k > 0, mod(X,k) < k),
-//    Implies(k < 0, mod(X,k) < -k),
-//    Implies(k != 0, k*quot(X,k) + mod(X,k) == X))
-//
-//    x, y = z3.Reals('x y')
-//
-//    mk_mod_axioms(x, 3)
-//    mk_mod_axioms(y, 5)
-
-}
 
 operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
 

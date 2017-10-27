@@ -42,6 +42,7 @@ class ContextConfigurator(val z3: Context) {
 
     //vals
     val Int.z get() = z3.mkInt(this)
+    val Int.zr get() = z3.mkReal(this)
 
     val realSort: Sort = z3.realSort
 
