@@ -3,12 +3,46 @@ package com.empowerops.sojourn
 import com.microsoft.z3.*
 import javafx.beans.binding.BooleanExpression
 
+inline fun <R> Context.configureReals(mutator: RealContextConfigurator.() -> R): R = RealContextConfigurator(this).mutator()
+
 inline fun <R> Context.configure(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 
-class ContextConfigurator(val z3: Context) {
+class RealContextConfigurator(z3: Context): ContextConfigurator(z3){
+
+    infix fun ArithExpr.gt(right: Int): BoolExpr = z3.mkGt(this, right.zr)
+    infix fun ArithExpr.gte(right: Int): BoolExpr = z3.mkGe(this, right.zr)
+    infix fun ArithExpr.lt(right: Int): BoolExpr = z3.mkLt(this, right.zr)
+    infix fun ArithExpr.lte(right: Int): BoolExpr = z3.mkLe(this, right.zr)
+
+    operator fun ArithExpr.times(right: Int): ArithExpr = z3.mkMul(this, right.zr)
+    operator fun ArithExpr.div(right: Int): ArithExpr = z3.mkDiv(this, right.zr)
+    operator fun ArithExpr.plus(right: Int): ArithExpr = z3.mkAdd(this, right.zr)
+    operator fun ArithExpr.minus(right: Int): ArithExpr = z3.mkSub(this, right.zr)
+
+    infix fun ArithExpr.pow(right: Int): ArithExpr = z3.mkPower(this, right.zr)
+
+    infix fun Int.gt(right: ArithExpr): BoolExpr = z3.mkGt(this.zr, right)
+    infix fun Int.gte(right: ArithExpr): BoolExpr = z3.mkGe(this.zr, right)
+    infix fun Int.lt(right: ArithExpr): BoolExpr = z3.mkLt(this.zr, right)
+    infix fun Int.lte(right: ArithExpr): BoolExpr = z3.mkLe(this.zr, right)
+
+    operator fun Int.times(right: ArithExpr): ArithExpr = z3.mkMul(this.zr, right)
+    operator fun Int.div(right: ArithExpr): ArithExpr = z3.mkDiv(this.zr, right)
+    operator fun Int.plus(right: ArithExpr): ArithExpr = z3.mkAdd(this.zr, right)
+    operator fun Int.minus(right: ArithExpr): ArithExpr = z3.mkSub(this.zr, right)
+    //note kotlin will use left-associativity here.
+    infix fun Int.pow(right: ArithExpr): ArithExpr = z3.mkPower(this.zr, right)
+
+    infix fun Expr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
+    infix fun Expr.neq(right: Int): BoolExpr = ! z3.mkEq(this, right.zr)
+    infix fun Int.eq(right: Expr): BoolExpr = z3.mkEq(this.zr, right)
+    infix fun Int.neq(right: Expr): BoolExpr = ! z3.mkEq(this.zr, right)
+}
+
+open class ContextConfigurator(val z3: Context) {
 
     //consts
-    val E: ArithExpr get() = TODO("fish e constant out of Native.rcfMkPi()")
+    val E: ArithExpr get() = TODO("fish e constant out of Native.rcfMkE()")
     val PI: ArithExpr get() = TODO("fish e constant out of Native.rcfMkPi()")
 
     //arith-expr

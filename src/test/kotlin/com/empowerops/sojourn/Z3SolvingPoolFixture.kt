@@ -120,8 +120,8 @@ class Z3SolvingPoolFixture {
         )
 
         val constraints = listOf(
-                "x1 > x2 % 2.0"
-//                "x3 < x4 % 4.5",
+                "x1 > x2 % 2.0",
+                "x3 < x4 % 4.5"
 //                "x5 > x6 % x7"
         ).map { compiler.compile(it) as BabelExpression }
 

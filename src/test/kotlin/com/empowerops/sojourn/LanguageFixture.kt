@@ -75,5 +75,13 @@ class LanguageFixture {
     data class MyBooleanObj(val str: String)
     infix fun MyObj.gt(right: MyObj) = MyBooleanObj("($str gt ${right.str})")
 
+    @Test fun `when asking for mod should get things`(){
+        val x1 = 0.5
+        val x2 = 0.5
+
+        val res = x1 > x2 % 2.0
+
+        val x = 4;
+    }
 
 }

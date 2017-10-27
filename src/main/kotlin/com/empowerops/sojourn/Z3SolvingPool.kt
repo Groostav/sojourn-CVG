@@ -15,26 +15,13 @@ class Z3SolvingPool(
 
     private val recompiler = BabelCompiler()
     private val z3 = Context()
-    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
+//    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
+//    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
+    private val solver = z3.configure { Solver() }
     private val inputExprs: Map<String, RealExpr>
 
-    val _mod by lazy { z3.configure { Function("mod", realSort, realSort, returnType = realSort) } }
-    val mod: FuncDecl get() = _mod.also { installMod() }
-
-    val _quot by lazy { z3.configure { Function("quot", realSort, realSort, returnType = realSort) } }
-    val quot: FuncDecl get() = _quot.also { installMod() }
-
-    private fun installMod() = z3.configure {
-
-        val (X, k) = Reals("x", "y")
-
-        solver.add (
-                (X neq 0.zr) implies (0.zr lte _mod(X, k)),
-                (k gt 0.zr) implies (k gt _mod(X, k)),
-                (k gt 0.zr) implies (-k gt _mod(X, k)),
-                (k neq 0.zr) implies (k * _quot(X, k) + _mod(X, k) eq X)
-        )
-    }
+    val mod: FuncDecl by lazy { z3.configure { Function("mod2", realSort, realSort, returnType = realSort) } }
+    val quot: FuncDecl by lazy { z3.configure { Function("quot2", realSort, realSort, returnType = realSort) } }
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -143,7 +130,7 @@ class Z3SolvingPool(
         //TODO: null safety on push/pop
         val exprs: Deque<ArithExpr> = LinkedList()
 
-        override fun exitExpr(ctx: BabelParser.ExprContext) = z3.configure {
+        override fun exitExpr(ctx: BabelParser.ExprContext) = z3.configureReals {
 
             val transcoded = when {
 
@@ -160,7 +147,7 @@ class Z3SolvingPool(
                     when(ctx[0].text) {
                         "sqrt" -> {
                             val rooted = z3.mkAnonRealConst()
-                            requirements += rooted gt Real("0.0")
+                            requirements += rooted gt 0
                             requirements += arg eq rooted * rooted
                             rooted
                         }
@@ -171,10 +158,8 @@ class Z3SolvingPool(
                         }
                     //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
                         "log" -> {
-//                        val logged = z3.mkAnonRealConst()
-                            //TODO: are we sure ints make this more solvable?
-                            val logged = Int("T_${tempId++}")
-                            requirements += arg eq (10.z pow logged)
+                            val logged = z3.mkAnonRealConst()
+                            requirements += arg eq (10 pow logged)
                             logged
                         }
                         "ln" -> {
@@ -194,8 +179,39 @@ class Z3SolvingPool(
                         is MinusContext -> left - right
                         is MultContext -> left * right
                         is DivContext -> left / right
-                        is ModContext -> mod(left, right)
                         is RaiseContext -> left pow right
+
+                        is ModContext -> {
+
+                            //    mod = z3.Function('mod', z3.RealSort(),z3.RealSort(), z3.RealSort())
+                            //    quot = z3.Function('quot', z3.RealSort(),z3.RealSort(), z3.IntSort())
+                            //    s = z3.Solver()
+                            //
+                            //    def mk_mod_axioms(X,k):
+                            //      s.add(Implies(k != 0, 0 <= mod(X,k)),
+                            //          Implies(k > 0, mod(X,k) < k),
+                            //          Implies(k < 0, mod(X,k) < -k),
+                            //          Implies(k != 0, k*quot(X,k) + mod(X,k) == X))
+                            //
+                            //    x, y = z3.Reals('x y')
+                            //
+                            //    mk_mod_axioms(x, 3)
+                            //    mk_mod_axioms(y, 5)
+
+                            val X = left
+                            val k = right
+
+                            requirements += listOf(
+
+                                    0 lt mod(X, k),
+                                    0 neq quot(X, k),
+                                    (k gt 0) implies (mod<ArithExpr>(X, k) lt k),
+                                    (k lt 0) implies (mod<ArithExpr>(X, k) lt -k),
+                                    k * quot<ArithExpr>(X, k) + mod<ArithExpr>(X, k) eq X
+                            )
+
+                            mod(left, right)
+                        }
 
                         is GtContext -> left gt right
                         is GteqContext -> left gte right
@@ -241,22 +257,6 @@ class Z3SolvingPool(
                 else -> TODO()
             })
         }
-
-//    mod = z3.Function('mod', z3.RealSort(),z3.RealSort(), z3.RealSort())
-//    quot = z3.Function('quot', z3.RealSort(),z3.RealSort(), z3.IntSort())
-//    s = z3.Solver()
-//
-//
-//    def mk_mod_axioms(X,k):
-//    s.add(Implies(k != 0, 0 <= mod(X,k)),
-//    Implies(k > 0, mod(X,k) < k),
-//    Implies(k < 0, mod(X,k) < -k),
-//    Implies(k != 0, k*quot(X,k) + mod(X,k) == X))
-//
-//    x, y = z3.Reals('x y')
-//
-//    mk_mod_axioms(x, 3)
-//    mk_mod_axioms(y, 5)
 
     }
 
