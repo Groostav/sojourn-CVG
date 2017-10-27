@@ -9,11 +9,14 @@ import org.antlr.v4.runtime.tree.ParseTree
 import java.util.*
 
 class Z3SolvingPool(
-        val ctx: Context,
-        val solver: Solver,
         val inputs: List<InputVariable>,
         val constraints: List<BabelExpression>
 ): ConstraintSolvingPool {
+
+    private val recompiler = BabelCompiler()
+    private val z3 = Context()
+    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
+    private val inputExprs: Map<String, RealExpr>
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -26,61 +29,62 @@ class Z3SolvingPool(
             System.loadLibrary("libz3java")
         }
 
-        fun findProblemConstraints(
-                inputSpec: List<InputVariable>,
-                conjunction: List<BabelExpression>
-        ): List<BabelExpression> {
-
-
-            TODO("add constraints one-by-one, " +
-                    "if solver.check() gives UNSAT," +
-                    " then remove them one-by-one until you have a small subset of unsat constraints."
-            )
-
-
-        }
-
         override fun create(
                 inputSpec: List<InputVariable>,
                 constraints: List<BabelExpression>
-        ): Z3SolvingPool {
+        )
+                = Z3SolvingPool(inputSpec, constraints).apply { checkConstraints() }
+    }
 
-            val ctx = Context()
-            return ctx.configure {
+    init {
+        inputExprs = z3.configure {
+            //1: input bounds
+            inputs.associate { input ->
+                val inputExpr = Real(input.name)
 
-                val recompiler = BabelCompiler()
-                val solver = Solver(Tactic("qfnra-nlsat"))
+                solver += inputExpr gt input.lowerBound.asZ3Real()
+                solver += inputExpr lt input.upperBound.asZ3Real()
 
-                //1: input bounds
-                val inputExprs = inputSpec.associate { input ->
-                    val inputExpr = Real(input.name)
-
-                    solver.add(inputExpr gt input.lowerBound.asZ3Real())
-                    solver.add(inputExpr lt input.upperBound.asZ3Real())
-
-                    input.name to inputExpr
-                }
-
-                //2: transcode constraint expressions
-                constraints.forEach { constraint ->
-
-                    val transcoder = BabelZ3TranscodingWalker(ctx, inputExprs)
-                    recompiler.compile(constraint.expressionLiteral, transcoder)
-
-                    val newSatState = solver.check()
-
-                    if(newSatState != Status.SATISFIABLE){
-                        TODO("$constraint made constraint set $newSatState\n solver is:\n$solver")
-                        //we could simply drop this and do a guess-and-check
-                    }
-
-                    transcoder.requirements.forEach { solver += it }
-                }
-
-                Z3SolvingPool(ctx, solver, inputSpec, constraints)
+                input.name to inputExpr
             }
         }
+    }
 
+    private fun checkConstraints() = z3.configure {
+
+        //2: transcode constraint expressions
+        constraints.forEach { constraint ->
+
+            val transcoder = BabelZ3TranscodingWalker(this@Z3SolvingPool.z3, inputExprs)
+            recompiler.compile(constraint.expressionLiteral, transcoder)
+
+            val newSatState = solver.check()
+
+            if(newSatState != Status.SATISFIABLE){
+                TODO("$constraint made constraint set $newSatState\n solver is:\n$solver")
+                //we could simply drop this and do a guess-and-check
+            }
+
+            transcoder.requirements.forEach { solver += it }
+        }
+
+    }
+
+    val mod: FuncDecl = z3.configure { Function("mod", realSort, realSort, returnType = realSort) }
+    val quot: FuncDecl = z3.configure { Function("quot", realSort, realSort, returnType = realSort) }
+
+    init {
+//        ctx.configure {
+//
+//            val (X, k) = Reals("x", "y")
+//
+//            solver.add (
+//                    (X neq 0.z) implies (0.z lte mod(X, k)),
+//                    (k gt 0.z) implies (k gt mod(X, k)),
+//                    (k gt 0.z) implies (-k gt mod(X, k)),
+//                    (k neq 0.z) implies (k * quot(X, k) + mod(X, k) eq X)
+//            )
+//        }
     }
 
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
@@ -103,7 +107,7 @@ class Z3SolvingPool(
         }
         var results = immutableListOf(seed)
 
-        ctx.configure {
+        z3.configure {
             //        FAIL; //not sure, model looks ok but under the debugger the solver just magically shifts.
             //problem is that the temp in a sqrt can be negative!@
             for(index in 1 until pointCount){
@@ -149,7 +153,10 @@ fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecl
         .toMap()
         .toInputVector()
 
-class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>): BabelParserBaseListener() {
+inner class BabelZ3TranscodingWalker(
+        val z3: Context,
+        val vars: Map<String, RealExpr>
+): BabelParserBaseListener() {
 
     var requirements: List<BoolExpr> = emptyList()
 
@@ -207,7 +214,7 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
                     is MinusContext -> left - right
                     is MultContext -> left * right
                     is DivContext -> left / right
-                    is ModContext -> left % right
+                    is ModContext -> mod(left, right)
                     is RaiseContext -> left pow right
 
                     is GtContext -> left gt right
@@ -239,13 +246,38 @@ class BabelZ3TranscodingWalker(val z3: Context, val vars: Map<String, RealExpr>)
             ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
             ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
                 "pi" -> PI
+//                    val exprCtor = Expr::class.staticFunctions
+//                        .single { it.name == "create" && it.parameters.size == 2 }
+//                        .apply { isAccessible = true }
+//                    val nCtxMember = Context::class.members
+//                        .single { it.name == "nCtx" }
+//                        .apply { isAccessible = true }
+//                    val nCtxPointer = nCtxMember.call(z3) as Long
+//                    val nativePiPointer = Native.rcfMkPi(nCtxPointer)
+//                    exprCtor.call(z3, nativePiPointer) as ArithExpr
                 "e" -> E
                 else -> TODO()
             }
             else -> TODO()
         })
-
     }
+
+//    mod = z3.Function('mod', z3.RealSort(),z3.RealSort(), z3.RealSort())
+//    quot = z3.Function('quot', z3.RealSort(),z3.RealSort(), z3.IntSort())
+//    s = z3.Solver()
+//
+//
+//    def mk_mod_axioms(X,k):
+//    s.add(Implies(k != 0, 0 <= mod(X,k)),
+//    Implies(k > 0, mod(X,k) < k),
+//    Implies(k < 0, mod(X,k) < -k),
+//    Implies(k != 0, k*quot(X,k) + mod(X,k) == X))
+//
+//    x, y = z3.Reals('x y')
+//
+//    mk_mod_axioms(x, 3)
+//    mk_mod_axioms(y, 5)
+
 }
 
 operator fun RuleContext.get(index: Int): ParseTree = getChild(index)

@@ -10,7 +10,7 @@ class Z3SolvingPoolFixture {
 
     val compiler = BabelCompiler()
 
-//    @Test
+    @Test
     fun `simple arithmatic`(){
 
         //setup
@@ -32,7 +32,7 @@ class Z3SolvingPoolFixture {
         assertThat(results).allMatch { constraint.evaluate(it).isPassedConstraint() }
     }
 
-//    @Test
+    @Test
     fun `root`() {
         //setup
         val inputs = listOf(
@@ -56,7 +56,7 @@ class Z3SolvingPoolFixture {
         assertThat(results).allMatch { constraints.passFor(it) }
     }
 
-//    @Test
+    @Test
     fun `power`(){
         //setup
         val inputs = listOf(
@@ -95,8 +95,57 @@ class Z3SolvingPoolFixture {
 
         val constraints = listOf(
 //                "x2 > ln(x1)"
-                "x4 < log(x3)"
+                "x4 < log(4)"
 //                "x6 > log(2.0, x5)"
+        ).map { compiler.compile(it) as BabelExpression }
+
+        //act
+        val pool = Z3SolvingPool.create(inputs, constraints)
+        val results = pool.makeNewPointGeneration(10, immutableListOf())
+
+        //assert
+        assertThat(results).hasSize(10)
+        assertThat(results).allMatch { constraints.passFor(it) }
+    }
+
+    @Test fun `mod`() {
+        val inputs = listOf(
+                InputVariable("x1", 0.0, 10.0),
+                InputVariable("x2", 0.0, 10.0),
+                InputVariable("x3", 0.0, 10.0),
+                InputVariable("x4", 0.0, 10.0),
+                InputVariable("x5", 0.0, 10.0),
+                InputVariable("x6", 0.0, 10.0),
+                InputVariable("x7", 0.0, 10.0)
+        )
+
+        val constraints = listOf(
+                "x1 > x2 % 2.0"
+//                "x3 < x4 % 4.5",
+//                "x5 > x6 % x7"
+        ).map { compiler.compile(it) as BabelExpression }
+
+
+        //act
+        val pool = Z3SolvingPool.create(inputs, constraints)
+        val results = pool.makeNewPointGeneration(10, immutableListOf())
+
+        //assert
+        assertThat(results).hasSize(10)
+        assertThat(results).allMatch { constraints.passFor(it) }
+    }
+
+//    @Test
+    fun `constants`(){
+        //setup
+        val inputs = listOf(
+                InputVariable("x1", 0.0, 10.0),
+                InputVariable("x2", 0.0, 10.0)
+        )
+
+        val constraints = listOf(
+                "x1 < pi",
+                "x2 > e"
         ).map { compiler.compile(it) as BabelExpression }
 
         //act
