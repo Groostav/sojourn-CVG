@@ -33,10 +33,12 @@ class RealContextConfigurator(z3: Context): ContextConfigurator(z3){
     //note kotlin will use left-associativity here.
     infix fun Int.pow(right: ArithExpr): ArithExpr = z3.mkPower(this.zr, right)
 
-    infix fun Expr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
-    infix fun Expr.neq(right: Int): BoolExpr = ! z3.mkEq(this, right.zr)
-    infix fun Int.eq(right: Expr): BoolExpr = z3.mkEq(this.zr, right)
-    infix fun Int.neq(right: Expr): BoolExpr = ! z3.mkEq(this.zr, right)
+    infix fun ArithExpr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
+    infix fun ArithExpr.neq(right: Int): BoolExpr = ! z3.mkEq(this, right.zr)
+    infix fun Int.eq(right: ArithExpr): BoolExpr = z3.mkEq(this.zr, right)
+    infix fun Int.neq(right: ArithExpr): BoolExpr = ! z3.mkEq(this.zr, right)
+
+    infix fun BoolExpr.eq(right: BoolExpr): BoolExpr = z3.mkEq(this, right)
 }
 
 open class ContextConfigurator(val z3: Context) {
@@ -105,6 +107,7 @@ open class ContextConfigurator(val z3: Context) {
 
     //without a wrapper that embeds more type information theres not much we can do here.
     inline operator fun <reified T: Expr> FuncDecl.invoke(arg1: Expr, arg2: Expr): T = this.apply(arg1, arg2) as T
+    inline operator fun <reified T: Expr> FuncDecl.invoke(arg1: Expr): T = this.apply(arg1) as T
 
 }
 

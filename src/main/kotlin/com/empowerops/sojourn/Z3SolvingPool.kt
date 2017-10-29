@@ -16,12 +16,14 @@ class Z3SolvingPool(
     private val recompiler = BabelCompiler()
     private val z3 = Context()
 //    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
-//    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
     private val solver = z3.configure { Solver() }
     private val inputExprs: Map<String, RealExpr>
 
-    val mod: FuncDecl by lazy { z3.configure { Function("mod2", realSort, realSort, returnType = realSort) } }
-    val quot: FuncDecl by lazy { z3.configure { Function("quot2", realSort, realSort, returnType = realSort) } }
+    val mod: FuncDecl by lazyZ3 { Function("mod2", realSort, realSort, returnType = realSort) }
+    val quot: FuncDecl by lazyZ3 { Function("quot2", realSort, realSort, returnType = realSort) }
+    val sgn: FuncDecl by lazyZ3 { Function("sgn", realSort, returnType = realSort) }
+
+    fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configure(initializer) }
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -145,6 +147,15 @@ class Z3SolvingPool(
                     val arg = exprs.pop()
 
                     when(ctx[0].text) {
+                        "sgn" -> {
+                            requirements += listOf(
+                                    arg eq 0 implies (sgn.invoke<ArithExpr>(arg) eq 0),
+                                    arg gt 0 implies (sgn.invoke<ArithExpr>(arg) eq 1),
+                                    arg lt 0 implies (sgn.invoke<ArithExpr>(arg) eq -1)
+                            )
+
+                            sgn(arg)
+                        }
                         "sqrt" -> {
                             val rooted = z3.mkAnonRealConst()
                             requirements += rooted gt 0

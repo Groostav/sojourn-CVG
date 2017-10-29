@@ -5,7 +5,7 @@ import com.beust.kobalt.plugin.kotlin.*
 
 object Versions {
     val kotlin = "1.1.50"
-    val babel = "0.7"
+    val babel = "0.8"
 }
 
 val bs = buildScript {
@@ -22,8 +22,8 @@ val p = project {
     dependencies {
 
         compile(file("deps/z3-4.5.0-win-x86/com.microsoft.z3.jar"))
-        compile(file("deps/babel-0.7/babel-0.7.jar"))
-        compile(file("deps/babel-0.7/babel-0.7-sources.jar"))
+        compile(file("deps/babel/babel-${Versions.babel}.jar"))
+        compile(file("deps/babel/babel-${Versions.babel}-sources.jar"))
 
         compile(
                 "org.jetbrains.kotlin:kotlin-reflect:${Versions.kotlin}",

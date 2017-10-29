@@ -11,142 +11,104 @@ class Z3SolvingPoolFixture {
     val compiler = BabelCompiler()
 
     @Test
-    fun `simple arithmatic`(){
-
-        //setup
-        val inputs = listOf(
-                InputVariable("x1", 0.0, 1.0),
-                InputVariable("x2", 0.0, 1.0),
-                InputVariable("x3", 0.0, 1.0),
-                InputVariable("x4", 0.0, 1.0)
-        )
-
-        val constraint = compiler.compile("x2 > x1 + 1/2*x2 - x3 / x4") as BabelExpression
-
-        //act
-        val pool = Z3SolvingPool.create(inputs, listOf(constraint))
-        val results = pool.makeNewPointGeneration(10, immutableListOf())
-
-        //assert
-        assertThat(results).hasSize(10)
-        assertThat(results).allMatch { constraint.evaluate(it).isPassedConstraint() }
-    }
+    fun `simple arithmatic`() = runTest(
+            mapOf(
+                    "x1" to 0.0 .. 1.0,
+                    "x2" to 0.0 .. 1.0,
+                    "x3" to 0.0 .. 1.0,
+                    "x4" to 0.0 .. 1.0
+            ),
+            listOf("x2 > x1 + 1/2*x2 - x3 / x4")
+    )
 
     @Test
-    fun `root`() {
-        //setup
-        val inputs = listOf(
-                InputVariable("x1", 0.0, 10.0),
-                InputVariable("x2", 0.0, 10.0),
-                InputVariable("x3", 0.0, 10.0),
-                InputVariable("x4", 0.0, 10.0)
-        )
-
-        val constraints = listOf(
-                "x1 > sqrt(x2)",
-                "x3 > cbrt(x4)"
-        ).map { compiler.compile(it) as BabelExpression }
-
-        //act
-        val pool = Z3SolvingPool.create(inputs, constraints)
-        val results = pool.makeNewPointGeneration(10, immutableListOf())
-
-        //assert
-        assertThat(results).hasSize(10)
-        assertThat(results).allMatch { constraints.passFor(it) }
-    }
+    fun `roots`() = runTest(
+            mapOf(
+                    "x1" to 0.0 .. 10.0,
+                    "x2" to 0.0 .. 10.0,
+                    "x3" to 0.0 .. 10.0,
+                    "x4" to 0.0 .. 10.0
+            ),
+            listOf(
+                    "x1 > sqrt(x2)",
+                    "x3 > cbrt(x4)"
+            )
+    )
 
     @Test
-    fun `power`(){
-        //setup
-        val inputs = listOf(
-                InputVariable("x1", 0.0, 10.0),
-                InputVariable("x2", 0.0, 10.0),
-                InputVariable("x3", 0.0, 10.0),
-                InputVariable("x4", 0.0, 10.0),
-                InputVariable("x5", 0.0, 10.0)
-        )
-
-        val constraints = listOf(
-                "x1 > x2^3"
-                //"x3 < x4^x5" //nope, Z3 wont reason about real-exponents.
-        ).map { compiler.compile(it) as BabelExpression }
-
-        //act
-        val pool = Z3SolvingPool.create(inputs, constraints)
-        val results = pool.makeNewPointGeneration(10, immutableListOf())
-
-        //assert
-        assertThat(results).hasSize(10)
-        assertThat(results).allMatch { constraints.passFor(it) }
-    }
+    fun `power`() = runTest(
+            mapOf(
+                    "x1" to 0.0 .. 10.0,
+                    "x2" to 0.0 .. 10.0,
+                    "x3" to 0.0 .. 10.0,
+                    "x4" to 0.0 .. 10.0,
+                    "x5" to 0.0 .. 10.0
+            ),
+            listOf(
+                    "x1 > x2^3"
+                    //"x3 < x4^x5" //nope, Z3 wont reason about real-exponents.
+            )
+    )
 
     @Test
-    fun `logarithms`(){
-        //setup
-        val inputs = listOf(
-                InputVariable("x1", 0.0, 10.0),
-                InputVariable("x2", 0.0, 10.0),
-                InputVariable("x3", 0.0, 10.0),
-                InputVariable("x4", 0.0, 10.0),
-                InputVariable("x5", 0.0, 10.0),
-                InputVariable("x6", 0.0, 10.0)
-        )
-
-        val constraints = listOf(
+    fun `logarithms`() = runTest(
+            mapOf(
+                    "x1" to 0.0..10.0,
+                    "x2" to 0.0..10.0,
+                    "x3" to 0.0..10.0,
+                    "x4" to 0.0..10.0,
+                    "x5" to 0.0..10.0,
+                    "x6" to 0.0..10.0
+            ),
+            listOf(
 //                "x2 > ln(x1)"
-                "x4 < log(4)"
+                    "x4 < log(4)"
 //                "x6 > log(2.0, x5)"
-        ).map { compiler.compile(it) as BabelExpression }
+            )
+    )
 
-        //act
-        val pool = Z3SolvingPool.create(inputs, constraints)
-        val results = pool.makeNewPointGeneration(10, immutableListOf())
-
-        //assert
-        assertThat(results).hasSize(10)
-        assertThat(results).allMatch { constraints.passFor(it) }
-    }
-
-    @Test fun `mod`() {
-        val inputs = listOf(
-                InputVariable("x1", 0.0, 10.0),
-                InputVariable("x2", 0.0, 10.0),
-                InputVariable("x3", 0.0, 10.0),
-                InputVariable("x4", 0.0, 10.0),
-                InputVariable("x5", 0.0, 10.0),
-                InputVariable("x6", 0.0, 10.0),
-                InputVariable("x7", 0.0, 10.0)
-        )
-
-        val constraints = listOf(
-                "x1 > x2 % 2.0",
-                "x3 < x4 % 4.5"
+    @Test
+    fun `mod`() = runTest(
+            mapOf(
+                    "x1" to 0.0..10.0,
+                    "x2" to 0.0..10.0,
+                    "x3" to 0.0..10.0,
+                    "x4" to 0.0..10.0,
+                    "x5" to 0.0..10.0,
+                    "x6" to 0.0..10.0,
+                    "x7" to 0.0..10.0
+            ),
+            listOf(
+                    "x1 > x2 % 2.0",
+                    "x3 < x4 % 4.5"
 //                "x5 > x6 % x7"
-        ).map { compiler.compile(it) as BabelExpression }
+            )
+    )
 
+    @Test
+    fun `constants`() = runTest(
+            mapOf("x1" to 0.0 .. 10.0, "x2" to 0.0 .. 10.0),
+            listOf("x1 < pi", "x2 > e")
+    )
 
-        //act
-        val pool = Z3SolvingPool.create(inputs, constraints)
-        val results = pool.makeNewPointGeneration(10, immutableListOf())
+    @Test
+    fun `sgn`() = runTest(
+            mapOf(
+                    "x1" to -1.0 .. +1.0, "x2" to -2.0 .. +2.0
+            ),
+            listOf(
+                    "x2 > sgn(x1)"
+            )
+    )
 
-        //assert
-        assertThat(results).hasSize(10)
-        assertThat(results).allMatch { constraints.passFor(it) }
-    }
+    private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {
+        val inputs = inputs2.map { (key, value) -> InputVariable(key, value.start, value.endInclusive) }
 
-//    @Test
-    fun `constants`(){
-        //setup
-        val inputs = listOf(
-                InputVariable("x1", 0.0, 10.0),
-                InputVariable("x2", 0.0, 10.0)
-        )
+        val constraints = constraints2.map {
+            val result = compiler.compile(it)
 
-        val constraints = listOf(
-                "x1 < pi",
-                "x2 > e"
-        ).map { compiler.compile(it) as BabelExpression }
+            result as? BabelExpression ?: throw RuntimeException("compiler failure in $it: $result")
+        }
 
         //act
         val pool = Z3SolvingPool.create(inputs, constraints)
