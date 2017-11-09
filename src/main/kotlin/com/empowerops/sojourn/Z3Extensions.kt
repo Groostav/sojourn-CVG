@@ -94,7 +94,10 @@ open class ContextConfigurator(val z3: Context) {
     fun Function(name: String, vararg paramTypes: Sort, returnType: Sort): FuncDecl = z3.mkFuncDecl(name, paramTypes, returnType)
     fun <P1, R> UnaryFunction(name: String, paramType: Sortish<P1>, returnType: Sortish<R>): UnaryFunction<P1, R> where P1: Expr, R: Expr
             = UnaryFunction<P1, R>(z3.mkFuncDecl(name, paramType.makeSortIn(z3), returnType.makeSortIn(z3)))
-    
+
+    fun <P1, P2, R> BinaryFunction(name: String, leftParamType: Sortish<P1>, rightParamType: Sortish<P2>, returnType: Sortish<R>): BinaryFunction<P1, P2, R> where P1: Expr, P2: Expr, R: Expr
+            = BinaryFunction<P1, P2, R>(z3.mkFuncDecl(name, arrayOf(leftParamType.makeSortIn(z3), rightParamType.makeSortIn(z3)), returnType.makeSortIn(z3)))
+
 //    inline fun <reified P1, reified P2, reified R> Function(name: String)
 //        where P1: Sortish, P2: Sortish, R: Sortish {
 //        TODO()
@@ -115,6 +118,9 @@ inline operator fun <reified T: Expr> FuncDecl.invoke(arg1: Expr): T = this.appl
 
 class UnaryFunction<P1, R>(val decl: FuncDecl) where P1: Expr, R: Expr {
     operator fun invoke(param: P1): R = decl.apply(param) as R
+}
+class BinaryFunction<P1, P2, R>(val decl: FuncDecl) where P1: Expr, P2: Expr, R: Expr {
+    operator fun invoke(leftParam: P1, rightParam: P2): R = decl.apply(leftParam, rightParam) as R
 }
 
 interface Sortish<out T: Expr> { fun makeSortIn(z3: Context): Sort }

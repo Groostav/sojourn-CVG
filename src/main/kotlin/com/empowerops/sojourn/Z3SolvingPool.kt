@@ -30,8 +30,8 @@ class Z3SolvingPool(
         }
     }
 
-    val mod: FuncDecl by lazyZ3 { Function("mod2", realSort, realSort, returnType = realSort) }
-    val quot: FuncDecl by lazyZ3 { Function("quot2", realSort, realSort, returnType = realSort) }
+    val mod: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("mod2", Real, Real, Real) }
+    val quot: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("quot2", Real, Real, Real) }
     val sgn: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
     val vars: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 {
 
@@ -223,9 +223,9 @@ class Z3SolvingPool(
 
                                     0 lt mod(X, k),
                                     0 neq quot(X, k),
-                                    (k gt 0) implies (mod<ArithExpr>(X, k) lt k),
-                                    (k lt 0) implies (mod<ArithExpr>(X, k) lt -k),
-                                    k * quot<ArithExpr>(X, k) + mod<ArithExpr>(X, k) eq X
+                                    (k gt 0) implies (mod(X, k) lt k),
+                                    (k lt 0) implies (mod(X, k) lt -k),
+                                    k * quot(X, k) + mod(X, k) eq X
                             )
 
                             mod(left, right)
