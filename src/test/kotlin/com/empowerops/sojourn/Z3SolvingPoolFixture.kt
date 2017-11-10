@@ -112,6 +112,10 @@ class Z3SolvingPoolFixture {
                     "x1 > floor(x2)"
 //                    "x3 > ceil(x4) + floor(x4)"
             )
+    @Test
+    fun `vars`() = runTest(
+            mapOf("x1" to -1.0 .. + 1.0, "x2" to -2.0 .. +2.0, "x3" to -2.0 .. +2.0),
+            listOf("1.5 < var[1] + var[2]", "1.5 < var[2] - var[3]")
     )
 
     private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {

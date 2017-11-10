@@ -13,19 +13,35 @@ class Z3SolvingPool(
         val constraints: List<BabelExpression>
 ): ConstraintSolvingPool {
 
+
     private val recompiler = BabelCompiler()
     private val z3 = Context()
-//    private val solver = z3.configure { Solver(Tactic("qfnra-nlsat")) }
-    private val solver = z3.configure { Solver() }
-    private val inputExprs: Map<String, RealExpr>
+//    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
+    private val solver = z3 { Solver() }
+    private val inputExprs: Map<String, RealExpr> = z3 {
+        //1: input bounds
+        inputs.associate { input ->
+            val inputExpr = Real(input.name)
 
-    val mod: FuncDecl by lazyZ3 { Function("mod2", realSort, realSort, returnType = realSort) }
-    val quot: FuncDecl by lazyZ3 { Function("quot2", realSort, realSort, returnType = realSort) }
-    val sgn: FuncDecl by lazyZ3 { Function("sgn", realSort, returnType = realSort) }
+            solver += inputExpr gt input.lowerBound.asZ3Real()
+            solver += inputExpr lt input.upperBound.asZ3Real()
+
+            input.name to inputExpr
+        }
+    }
 
     val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
+    val mod: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("mod2", Real, Real, Real) }
+    val quot: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("quot2", Real, Real, Real) }
+    val sgn: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
+    val vars: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 {
 
-    fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configure(initializer) }
+        UnaryFunction("var", Real, Real).also {
+            for((index, input) in inputs.withIndex()){
+                solver += it((index + 1).zr) eq inputExprs[input.name]!!
+            }
+        }
+    }
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -45,21 +61,7 @@ class Z3SolvingPool(
                 = Z3SolvingPool(inputSpec, constraints).apply { checkConstraints() }
     }
 
-    init {
-        inputExprs = z3.configure {
-            //1: input bounds
-            inputs.associate { input ->
-                val inputExpr = Real(input.name)
-
-                solver += inputExpr gt input.lowerBound.asZ3Real()
-                solver += inputExpr lt input.upperBound.asZ3Real()
-
-                input.name to inputExpr
-            }
-        }
-    }
-
-    private fun checkConstraints() = z3.configure {
+    private fun checkConstraints() = z3 {
 
         require(solver.check() == Status.SATISFIABLE) { "before adding constraints solver SAT is ${solver.check()}:\n $solver " }
 
@@ -101,7 +103,8 @@ class Z3SolvingPool(
         }
         var results = immutableListOf(seed)
 
-        z3.configure {
+        z3 {
+
             for(index in 1 until pointCount){
                 solver += model.constDecls
                         .filter { it.name.toString() in inputs.map { it.name} }
@@ -131,11 +134,16 @@ class Z3SolvingPool(
         //TODO: null safety on push/pop
         val exprs: Deque<ArithExpr> = LinkedList()
 
-        override fun exitExpr(ctx: BabelParser.ExprContext) = z3.configureReals {
+        override fun exitExpr(ctx: BabelParser.ExprContext) = z3 {
 
             val transcoded = when {
 
                 ctx.literal() != null || ctx.variable() != null -> null
+
+                ctx.callsDynamicVariableAccess() -> {
+                    val index = exprs.pop()
+                    vars(index)
+                }
 
                 ctx.negate() != null -> {
                     val child = exprs.pop()
@@ -149,9 +157,9 @@ class Z3SolvingPool(
                     when(operatorText) {
                         "sgn" -> {
                             requirements += listOf(
-                                    arg eq 0 implies (sgn.invoke<ArithExpr>(arg) eq 0),
-                                    arg gt 0 implies (sgn.invoke<ArithExpr>(arg) eq 1),
-                                    arg lt 0 implies (sgn.invoke<ArithExpr>(arg) eq -1)
+                                    arg eq 0 implies (sgn(arg) eq 0),
+                                    arg gt 0 implies (sgn(arg) eq 1),
+                                    arg lt 0 implies (sgn(arg) eq -1)
                             )
 
                             sgn(arg)
@@ -217,9 +225,9 @@ class Z3SolvingPool(
 
                                     0 lt mod(X, k),
                                     0 neq quot(X, k),
-                                    (k gt 0) implies (mod<ArithExpr>(X, k) lt k),
-                                    (k lt 0) implies (mod<ArithExpr>(X, k) lt -k),
-                                    k * quot<ArithExpr>(X, k) + mod<ArithExpr>(X, k) eq X
+                                    (k gt 0) implies (mod(X, k) lt k),
+                                    (k lt 0) implies (mod(X, k) lt -k),
+                                    k * quot(X, k) + mod(X, k) eq X
                             )
 
                             mod(left, right)
@@ -248,7 +256,7 @@ class Z3SolvingPool(
             exprs.push(inputExprs(ctx.text))
         }
 
-        override fun exitLiteral(ctx: LiteralContext) = z3.configure {
+        override fun exitLiteral(ctx: LiteralContext) = z3{
             exprs.push(when {
                 ctx.FLOAT() != null -> z3.mkReal(ctx.FLOAT().text)
                 ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
@@ -272,6 +280,8 @@ class Z3SolvingPool(
 
     }
 
+
+    fun <R> lazyZ3(initializer: RealContextConfigurator.() -> R) = lazy { z3.configureReals(initializer) }
 }
 
 fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecls
