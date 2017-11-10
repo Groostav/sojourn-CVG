@@ -86,6 +86,7 @@ open class ContextConfigurator(val z3: Context) {
     fun Solver(): Solver = z3.mkSolver()
     fun Solver(tactic: Tactic): Solver = z3.mkSolver(tactic)
     operator fun Solver.plusAssign(expr: BoolExpr): Unit = add(expr)
+    operator fun Solver.plusAssign(exprs: List<BoolExpr>): Unit = exprs.forEach { add(it) }
 
     //TACTIC
     fun Tactic(name: String): Tactic = z3.mkTactic(name) //TBD: generated sealed/enum-class?

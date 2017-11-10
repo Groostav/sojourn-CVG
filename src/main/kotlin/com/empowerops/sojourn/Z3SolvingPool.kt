@@ -23,6 +23,8 @@ class Z3SolvingPool(
     val quot: FuncDecl by lazyZ3 { Function("quot2", realSort, realSort, returnType = realSort) }
     val sgn: FuncDecl by lazyZ3 { Function("sgn", realSort, returnType = realSort) }
 
+    val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
+
     fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configure(initializer) }
 
     companion object: ConstraintSolvingPoolFactory {
@@ -100,13 +102,10 @@ class Z3SolvingPool(
         var results = immutableListOf(seed)
 
         z3.configure {
-            //        FAIL; //not sure, model looks ok but under the debugger the solver just magically shifts.
-            //problem is that the temp in a sqrt can be negative!@
             for(index in 1 until pointCount){
-                model.constDecls
+                solver += model.constDecls
                         .filter { it.name.toString() in inputs.map { it.name} }
-                        .map { ! (model.getConstInterp(it) eq Real(it.name)) }
-                        .forEach { solver.add(it) }
+                        .map { model.getConstInterp(it) neq Real(it.name) }
 
                 resolved = solver.check()
                 if(resolved == Status.UNSATISFIABLE) { break }
@@ -145,8 +144,9 @@ class Z3SolvingPool(
 
                 ctx.unaryFunction() != null -> {
                     val arg = exprs.pop()
+                    val operatorText = ctx[0].text
 
-                    when(ctx[0].text) {
+                    when(operatorText) {
                         "sgn" -> {
                             requirements += listOf(
                                     arg eq 0 implies (sgn.invoke<ArithExpr>(arg) eq 0),
@@ -178,7 +178,8 @@ class Z3SolvingPool(
                             requirements += arg eq (E pow lawned)
                             lawned
                         }
-                        else -> TODO()
+                        "floor" -> { floor(arg) }
+                        else -> TODO("not implemented: $operatorText")
                     }
                 }
                 ctx.callsBinaryOp() -> {

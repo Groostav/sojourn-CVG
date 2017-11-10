@@ -101,6 +101,19 @@ class Z3SolvingPoolFixture {
             )
     )
 
+    @Test fun `ciel and floor`() = runTest(
+            mapOf(
+                    "x1" to 0.0 .. 10.0,
+                    "x2" to 0.0 .. 10.0,
+                    "x3" to 0.0 .. 10.0,
+                    "x4" to 0.0 .. 10.0
+            ),
+            listOf(
+                    "x1 > floor(x2)"
+//                    "x3 > ceil(x4) + floor(x4)"
+            )
+    )
+
     private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {
         val inputs = inputs2.map { (key, value) -> InputVariable(key, value.start, value.endInclusive) }
 
