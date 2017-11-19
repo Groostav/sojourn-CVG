@@ -16,8 +16,8 @@ class Z3SolvingPool(
 
     private val recompiler = BabelCompiler()
     private val z3 = Context()
-//    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
-    private val solver = z3 { Solver() }
+    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
+//    private val solver = z3 { Solver() }
     private val inputExprs: Map<String, RealExpr> = z3 {
         //1: input bounds
         inputs.associate { input ->
@@ -109,7 +109,7 @@ class Z3SolvingPool(
             for(index in 1 until pointCount){
                 solver += model.constDecls
                         .filter { it.name.toString() in inputs.map { it.name} }
-                        .map { model.getConstInterp(it) neq Real(it.name) }
+                        .map { model.getConstInterp(it) as ArithExpr neq Real(it.name) }
 
                 resolved = solver.check()
                 if(resolved == Status.UNSATISFIABLE) { break }
@@ -146,10 +146,7 @@ class Z3SolvingPool(
                     vars(index)
                 }
 
-                ctx.negate() != null -> {
-                    val child = exprs.pop()
-                    z3.mkUnaryMinus(child)
-                }
+                ctx.negate() != null -> -exprs.pop()
 
                 ctx.unaryFunction() != null -> {
                     val arg = exprs.pop()
@@ -272,15 +269,6 @@ class Z3SolvingPool(
                 ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
                 ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
                     "pi" -> PI
-//                    val exprCtor = Expr::class.staticFunctions
-//                        .single { it.name == "create" && it.parameters.size == 2 }
-//                        .apply { isAccessible = true }
-//                    val nCtxMember = Context::class.members
-//                        .single { it.name == "nCtx" }
-//                        .apply { isAccessible = true }
-//                    val nCtxPointer = nCtxMember.call(z3) as Long
-//                    val nativePiPointer = Native.rcfMkPi(nCtxPointer)
-//                    exprCtor.call(z3, nativePiPointer) as ArithExpr
                     "e" -> E
                     else -> TODO()
                 }
@@ -291,7 +279,7 @@ class Z3SolvingPool(
     }
 
 
-    fun <R> lazyZ3(initializer: RealContextConfigurator.() -> R) = lazy { z3.configureReals(initializer) }
+    fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configureReals(initializer) }
 }
 
 fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecls

@@ -17,8 +17,8 @@ class LanguageFixture {
 
         fun String.toIntStrict(): Int = toInt().let { when(it) {
             //TODO, this should probably be smarted to allow for the literal max/min value number
-            Integer.MAX_VALUE -> throw NumberFormatException("overflow representing $this as integer")
-            Integer.MIN_VALUE -> throw NumberFormatException("underflow representing $this as integer")
+            Int.MAX_VALUE -> throw NumberFormatException("overflow representing $this as integer")
+            Int.MIN_VALUE -> throw NumberFormatException("underflow representing $this as integer")
             else -> it
         }}
 
@@ -36,10 +36,10 @@ class LanguageFixture {
     }
 
     @Test fun `when casting a large double to integer should throw number format`(){
-        assertThat(1E20.toInt()).isEqualTo(Integer.MAX_VALUE)
+        assertThat(1E20.toInt()).isEqualTo(Int.MAX_VALUE)
 
         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-        assertThat((1E20 as java.lang.Number).intValue()).isEqualTo(Integer.MAX_VALUE)
+        assertThat((1E20 as java.lang.Number).intValue()).isEqualTo(Int.MAX_VALUE)
     }
 
     @Test fun `remainder function functions usefully`(){
