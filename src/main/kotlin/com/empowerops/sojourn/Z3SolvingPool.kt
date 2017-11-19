@@ -30,7 +30,7 @@ class Z3SolvingPool(
         }
     }
 
-    val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
+//    val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
     val mod: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("mod2", Real, Real, Real) }
     val quot: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("quot2", Real, Real, Real) }
     val sgn: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
@@ -42,6 +42,7 @@ class Z3SolvingPool(
             }
         }
     }
+    val abs: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("abs", Real, Real) }
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -186,7 +187,16 @@ class Z3SolvingPool(
                             requirements += arg eq (E pow lawned)
                             lawned
                         }
-                        "floor" -> { floor(arg) }
+                        "floor" -> {
+//                            floor(arg)
+                            TODO()
+                        }
+                        "abs" -> {
+                            solver += arg lt 0 implies (abs(arg) eq -1 * arg)
+                            solver += arg gte 0 implies (abs(arg) eq arg)
+
+                            abs(arg)
+                        }
                         else -> TODO("not implemented: $operatorText")
                     }
                 }

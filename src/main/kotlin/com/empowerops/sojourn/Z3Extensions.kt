@@ -2,12 +2,13 @@ package com.empowerops.sojourn
 
 import com.microsoft.z3.*
 import javafx.beans.binding.BooleanExpression
+import java.math.BigDecimal
 
-inline fun <R> Context.configureReals(mutator: RealContextConfigurator.() -> R): R = RealContextConfigurator(this).mutator()
+inline fun <R> Context.configureReals(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 inline fun <R> Context.configure(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
-inline operator fun <R> Context.invoke(mutator: RealContextConfigurator.() -> R): R = RealContextConfigurator(this).mutator()
+inline operator fun <R> Context.invoke(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 
-class RealContextConfigurator(z3: Context): ContextConfigurator(z3){
+class ContextConfigurator(val z3: Context){
 
     infix fun ArithExpr.gt(right: Int): BoolExpr = z3.mkGt(this, right.zr)
     infix fun ArithExpr.gte(right: Int): BoolExpr = z3.mkGe(this, right.zr)
@@ -38,14 +39,11 @@ class RealContextConfigurator(z3: Context): ContextConfigurator(z3){
     infix fun Int.eq(right: ArithExpr): BoolExpr = z3.mkEq(this.zr, right)
     infix fun Int.neq(right: ArithExpr): BoolExpr = ! z3.mkEq(this.zr, right)
 
-    infix fun BoolExpr.eq(right: BoolExpr): BoolExpr = z3.mkEq(this, right)
-}
-
-open class ContextConfigurator(val z3: Context) {
-
     //consts
-    val E: ArithExpr get() = TODO("fish e constant out of Native.rcfMkE()")
-    val PI: ArithExpr get() = TODO("fish e constant out of Native.rcfMkPi()")
+    //TODO pending https://github.com/Z3Prover/z3/issues/1327
+    // current strategy is just to use a high resolution constant a le floating point.
+    val E: ArithExpr = BigDecimal("2.7182818284590452353").zr
+    val PI: ArithExpr = BigDecimal("3.1415926535897932384").zr
 
     //arith-expr
     infix fun ArithExpr.gt(right: ArithExpr): BoolExpr = z3.mkGt(this, right)
@@ -65,8 +63,10 @@ open class ContextConfigurator(val z3: Context) {
     infix fun ArithExpr.pow(right: ArithExpr): ArithExpr = z3.mkPower(this, right)
 
     //expr
-    infix fun Expr.eq(right: Expr): BoolExpr = z3.mkEq(this, right)
-    infix fun Expr.neq(right: Expr): BoolExpr = ! z3.mkEq(this, right)
+    infix fun ArithExpr.eq(right: ArithExpr): BoolExpr = z3.mkEq(this, right)
+    infix fun BoolExpr.eq(right: BoolExpr): BoolExpr = z3.mkEq(this, right)
+    infix fun ArithExpr.neq(right: ArithExpr): BoolExpr = ! z3.mkEq(this, right)
+    infix fun BoolExpr.neq(right: BoolExpr): BoolExpr = ! z3.mkEq(this, right)
 
     //CONSTS
     fun Real(name: String) = z3.mkRealConst(name)
@@ -79,6 +79,7 @@ open class ContextConfigurator(val z3: Context) {
     //vals
     val Int.z get() = z3.mkInt(this)
     val Int.zr get() = z3.mkReal(this)
+    val BigDecimal.zr get() = z3.mkReal(this.toString())
 
     val realSort: Sort = z3.realSort
 
@@ -125,6 +126,10 @@ class BinaryFunction<P1, P2, R>(val decl: FuncDecl) where P1: Expr, P2: Expr, R:
 }
 
 interface Sortish<out T: Expr> { fun makeSortIn(z3: Context): Sort }
+
 object Real: Sortish<ArithExpr> {
     override fun makeSortIn(z3: Context): Sort = z3.realSort
+}
+object Integer: Sortish<ArithExpr> {
+    override fun makeSortIn(z3: Context): Sort = z3.intSort
 }
