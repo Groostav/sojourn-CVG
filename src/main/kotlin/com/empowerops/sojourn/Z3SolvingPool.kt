@@ -189,8 +189,8 @@ class Z3SolvingPool(
                             TODO()
                         }
                         "abs" -> {
-                            solver += arg lt 0 implies (abs(arg) eq -1 * arg)
-                            solver += arg gte 0 implies (abs(arg) eq arg)
+                            requirements += arg lt 0 implies (abs(arg) eq -1 * arg)
+                            requirements += arg gte 0 implies (abs(arg) eq arg)
 
                             abs(arg)
                         }
