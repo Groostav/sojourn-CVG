@@ -136,7 +136,28 @@ class Z3SolvingPool(
         //TODO: null safety on push/pop
         val exprs: Deque<ArithExpr> = LinkedList()
 
-        override fun exitExpr(ctx: BabelParser.ExprContext) = z3 {
+        override fun exitBooleanExpr(ctx: BooleanExprContext) = z3 {
+            val transcoded = when {
+                ctx.callsBinaryOp() -> {
+                    val right = exprs.pop()
+                    val left = exprs.pop()
+
+                    when {
+                        ctx.gt() != null -> left gt right
+                        ctx.lt() != null -> left lt right
+                        ctx.gteq() != null -> left gte right
+                        ctx.lteq() != null -> left lte right
+
+                        else -> TODO("unknown: ${ctx.text}")
+                    }
+                }
+                else -> TODO("unknown: ${ctx.text}")
+            }
+
+            appendInstruction(transcoded)
+        }
+
+        override fun exitScalarExpr(ctx: ScalarExprContext) = z3 {
 
             val transcoded = when {
 
@@ -273,8 +294,13 @@ class Z3SolvingPool(
                 else -> TODO("op for ${ctx.text}")
             }
 
-            when (transcoded){
-                null -> {}
+            appendInstruction(transcoded)
+        }
+
+        private fun appendInstruction(transcoded: Expr?) {
+            when (transcoded) {
+                null -> {
+                }
                 is ArithExpr -> exprs.push(transcoded)
                 is BoolExpr -> requirements += transcoded
                 else -> TODO()

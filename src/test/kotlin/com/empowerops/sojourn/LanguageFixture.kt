@@ -84,4 +84,11 @@ class LanguageFixture {
         val x = 4;
     }
 
+
+    @Test fun `cant call contains on maps`(){
+        val map: Map<String, Double> = emptyMap()
+
+//        ("1" to 1.0) in map
+        //while there is a contains method on Map, its for keys.
+    }
 }
