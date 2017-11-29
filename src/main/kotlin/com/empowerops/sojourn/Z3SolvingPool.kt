@@ -177,12 +177,12 @@ class Z3SolvingPool(
                     //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
                         "log" -> {
                             val logged = z3.mkAnonRealConst()
-                            requirements += arg eq (10 pow logged)
+                            requirements += arg eq pow(10, logged)
                             logged
                         }
                         "ln" -> {
                             val lawned = z3.mkAnonRealConst()
-                            requirements += arg eq (E pow lawned)
+                            requirements += arg eq pow(E, lawned)
                             lawned
                         }
                         "floor" -> {
@@ -198,19 +198,21 @@ class Z3SolvingPool(
                         "sin" -> {
                             val sinned = z3.mkAnonRealConst()
 
+                            //using an expansion of sin(x): http://math2.org/math/algebra/functions/sincos/expansions.htm
                             val i3Fac = z3.mkReal(1, /*3!*/ 6)
                             val i5Fac = z3.mkReal(1, /*5!*/ 120)
                             val i7Fac = z3.mkReal(1, 5040)
                             val i9Fac = z3.mkReal(1, 362880)
                             val i11Fac = z3.mkReal(1, 39916800)
+                            //this only gets us a handful of sig-figs. 
 
                             requirements += sinned eq (
                                             arg
-                                            - (i3Fac * (arg pow 3))
-                                            + (i5Fac * (arg pow 5))
-                                            - (i7Fac * (arg pow 7))
-                                            + (i9Fac * (arg pow 9))
-                                            - (i11Fac * (arg pow 11))
+                                            - (i3Fac * pow(arg, 3))
+                                            + (i5Fac * pow(arg, 5))
+                                            - (i7Fac * pow(arg, 7))
+                                            + (i9Fac * pow(arg, 9))
+                                            - (i11Fac * pow(arg, 11))
 //                                            + 13
                                     ) 
 
@@ -228,7 +230,7 @@ class Z3SolvingPool(
                         is MinusContext -> left - right
                         is MultContext -> left * right
                         is DivContext -> left / right
-                        is RaiseContext -> left pow right
+                        is RaiseContext -> pow(left, right)
 
                         is ModContext -> {
 
