@@ -19,7 +19,6 @@ class ContextConfigurator(val z3: Context){
     operator fun ArithExpr.div(right: Int): ArithExpr = z3.mkDiv(this, right.zr)
     operator fun ArithExpr.plus(right: Int): ArithExpr = z3.mkAdd(this, right.zr)
     operator fun ArithExpr.minus(right: Int): ArithExpr = z3.mkSub(this, right.zr)
-
     infix fun ArithExpr.pow(right: Int): ArithExpr = z3.mkPower(this, right.zr)
 
     infix fun Int.gt(right: ArithExpr): BoolExpr = z3.mkGt(this.zr, right)
@@ -31,8 +30,8 @@ class ContextConfigurator(val z3: Context){
     operator fun Int.div(right: ArithExpr): ArithExpr = z3.mkDiv(this.zr, right)
     operator fun Int.plus(right: ArithExpr): ArithExpr = z3.mkAdd(this.zr, right)
     operator fun Int.minus(right: ArithExpr): ArithExpr = z3.mkSub(this.zr, right)
-    //note kotlin will use left-associativity here.
     infix fun Int.pow(right: ArithExpr): ArithExpr = z3.mkPower(this.zr, right)
+    //note kotlin will use left-associativity here.
 
     infix fun ArithExpr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
     infix fun ArithExpr.neq(right: Int): BoolExpr = ! z3.mkEq(this, right.zr)

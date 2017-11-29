@@ -149,7 +149,7 @@ class Benchmarks {
 
     @Test fun `sampling top-corner-200D inequalities`() = runTest(RandomSamplingPool1234, TopCorner200D)
     @Test fun `random walking top-corner-200D with one seed`() = runTest(RandomWalkingPool1234, TopCorner200D)
-    @Test fun `z3 top-corner-200D`() = runTest(Z3SolvingPool, TopCorner200D)
+    @Test fun `z3 top-corner-200D`() = runTest(Z3SolvingPool, TopCorner200D.copy(targetSampleSize = 100))
 
     @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
     @Test fun `z3 on P118`() = runTest(Z3SolvingPool, P118)
@@ -181,7 +181,7 @@ class Benchmarks {
         if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
 
         //assert 2 -- red/green assertions
-        assertThat(results).allMatch { point -> constraints.all { it.evaluate(point).isPassedConstraint() }}
+        assertThat(results).allMatch { point -> constraints.passFor(point) }
 //        assertThat((actualCentroid vecMinus centroid).distance)
 //                .describedAs("distance between result centroid $actualCentroid\nand the expected centroid $centroid")
 //                .isLessThan(centroid.distance * fudgeFactor)

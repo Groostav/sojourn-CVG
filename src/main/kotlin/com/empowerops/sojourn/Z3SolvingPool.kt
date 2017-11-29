@@ -18,6 +18,7 @@ class Z3SolvingPool(
     private val z3 = Context()
     private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
 //    private val solver = z3 { Solver() }
+    
     private val inputExprs: Map<String, RealExpr> = z3 {
         //1: input bounds
         inputs.associate { input ->
@@ -34,15 +35,15 @@ class Z3SolvingPool(
     val mod: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("mod2", Real, Real, Real) }
     val quot: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("quot2", Real, Real, Real) }
     val sgn: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
-    val vars: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 {
+    val abs: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("abs", Real, Real) }
 
+    val vars: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 {
         UnaryFunction("var", Real, Real).also {
             for((index, input) in inputs.withIndex()){
                 solver += it((index + 1).zr) eq inputExprs[input.name]!!
             }
         }
     }
-    val abs: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("abs", Real, Real) }
 
     companion object: ConstraintSolvingPoolFactory {
 
@@ -193,6 +194,27 @@ class Z3SolvingPool(
                             requirements += arg gte 0 implies (abs(arg) eq arg)
 
                             abs(arg)
+                        }
+                        "sin" -> {
+                            val sinned = z3.mkAnonRealConst()
+
+                            val i3Fac = z3.mkReal(1, /*3!*/ 6)
+                            val i5Fac = z3.mkReal(1, /*5!*/ 120)
+                            val i7Fac = z3.mkReal(1, 5040)
+                            val i9Fac = z3.mkReal(1, 362880)
+                            val i11Fac = z3.mkReal(1, 39916800)
+
+                            requirements += sinned eq (
+                                            arg
+                                            - (i3Fac * (arg pow 3))
+                                            + (i5Fac * (arg pow 5))
+                                            - (i7Fac * (arg pow 7))
+                                            + (i9Fac * (arg pow 9))
+                                            - (i11Fac * (arg pow 11))
+//                                            + 13
+                                    ) 
+
+                            sinned
                         }
                         else -> TODO("not implemented: $operatorText")
                     }
