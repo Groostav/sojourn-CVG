@@ -31,7 +31,6 @@ val p = project {
                 "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
         )
 
-        compile("org.choco-solver:choco-solver:4.0.4")
         compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
