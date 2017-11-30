@@ -196,7 +196,7 @@ class Benchmarks {
         val excelResults = ExcelResults()
 
         (1 .. 10).map {
-            runTest(RandomSamplingPool1234, makeParabolicConstraints(0.019), excelResults)
+            runTest(Z3SolvingPool, makeParabolicConstraints(0.019), excelResults)
         }
 
 

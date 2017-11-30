@@ -6,6 +6,7 @@ import com.microsoft.z3.*
 import kotlinx.collections.immutable.*
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
+import org.antlr.v4.runtime.tree.TerminalNode
 import java.util.*
 
 class Z3SolvingPool(
@@ -16,8 +17,8 @@ class Z3SolvingPool(
 
     private val recompiler = BabelCompiler()
     private val z3 = Context()
-    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
-//    private val solver = z3 { Solver() }
+//    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
+    private val solver = z3 { Solver() }
     
     private val inputExprs: Map<String, RealExpr> = z3 {
         //1: input bounds
@@ -129,6 +130,8 @@ class Z3SolvingPool(
         }
     }
 
+    fun <T> Deque<T>.pop(count: Int) = (1 .. count).map { this.pop() }
+
     inner class BabelZ3TranscodingWalker: BabelParserBaseListener() {
 
         var requirements: List<BoolExpr> = emptyList()
@@ -151,10 +154,16 @@ class Z3SolvingPool(
                         else -> TODO("unknown: ${ctx.text}")
                     }
                 }
+                ctx.eq() != null -> {
+                    val (offset, right, left) = exprs.pop(3)
+
+
+                }
                 else -> TODO("unknown: ${ctx.text}")
             }
+            TODO()
 
-            appendInstruction(transcoded)
+//            appendInstruction(transcoded)
         }
 
         override fun exitScalarExpr(ctx: ScalarExprContext) = z3 {
@@ -169,6 +178,8 @@ class Z3SolvingPool(
                 }
 
                 ctx.negate() != null -> -exprs.pop()
+
+                (ctx[0] as? TerminalNode)?.symbol?.type == BabelLexer.OPEN_PAREN -> null
 
                 ctx.unaryFunction() != null -> {
                     val arg = exprs.pop()
@@ -282,12 +293,6 @@ class Z3SolvingPool(
 
                             mod(left, right)
                         }
-
-                        is GtContext -> left gt right
-                        is GteqContext -> left gte right
-                        is LtContext -> left lt right
-                        is LteqContext -> left lte right
-
                         else -> TODO()
                     }
                 }
