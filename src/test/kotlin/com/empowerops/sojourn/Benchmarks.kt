@@ -5,10 +5,14 @@ import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
 import kotlinx.collections.immutable.*
 import org.assertj.core.api.Assertions.*
-import org.assertj.core.data.Offset
 import org.testng.SkipException
 import org.testng.annotations.Test
 import java.util.*
+
+typealias FeasibleRegion = Map<String, ClosedRange<Double>>
+
+operator fun FeasibleRegion.contains(vector: InputVector): Boolean
+        = this.entries.all { vector.getValue(it.key) in it.value }
 
 class Benchmarks {
 
@@ -25,8 +29,23 @@ class Benchmarks {
             val dispersion: Double,
             val targetSampleSize: Int,
             val seeds: ImmutableList<InputVector> = immutableListOf(),
-            val fudgeFactor: Double = 0.10
-    )
+            val fudgeFactor: Double = 0.10,
+            val feasibleRegions: List<FeasibleRegion> = emptyList()
+    ) {
+        init {
+            for (outer in feasibleRegions) {
+                for (inner in feasibleRegions - outer) {
+                    for(input: String in inputs.map { it.name }) {
+                        val (innerValue, outerValue) = inner[input] to outer[input]
+                        if(innerValue == null || outerValue == null) continue
+
+                        require(innerValue.start !in outerValue)
+                        require(innerValue.endInclusive !in outerValue)
+                    }
+                }
+            }
+        }
+    }
 
     val SanityCheck = ConstraintSet(
             name = "SanityCheck",
@@ -40,6 +59,21 @@ class Benchmarks {
             targetSampleSize = 1_000
     )
 
+    fun makeParabolicConstraints(offset: Double) = ConstraintSet(
+            name = "ParabolicRoots",
+            inputs = listOf(InputVariable("x", -5.0, +5.0)),
+            constraints = listOf(
+                    "(x + 2) * (x - 1) == 0 +/- $offset"
+            ),
+            centroid = immutableMapOf("x" to -0.5),
+            dispersion = 1.0,
+            targetSampleSize = 1000,
+            seeds = immutableListOf(InputVector("x" to -2.0)),
+            feasibleRegions = listOf(
+                    mapOf("x" to (-2.0 - offset) .. (-2.0 + offset)),
+                    mapOf("x" to (+1.0 - offset) .. (+1.0 + offset))
+            )
+    )
 
     val BriandeadInequalitySet = ConstraintSet(
             name = "Braindead",
@@ -138,7 +172,6 @@ class Benchmarks {
     )
 
 
-
     @Test fun `sampling sanity check`() = runTest(RandomSamplingPool1234, SanityCheck)
     @Test fun `random walking sanity check`() = runTest(RandomWalkingPool1234, SanityCheck)
     @Test fun `z3 sanity check`() = runTest(Z3SolvingPool, SanityCheck.copy(targetSampleSize = 100))
@@ -157,7 +190,26 @@ class Benchmarks {
     @Test fun `sampling on tough-single-var`() = runTest(RandomSamplingPool1234, ToughSingleVar)
     @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
 
-    private fun `runTest`(solverFactory: ConstraintSolvingPoolFactory, constraintSpec: ConstraintSet): Unit = constraintSpec.run {
+
+    @Test
+    fun solveThings() {
+        val excelResults = ExcelResults()
+
+        (1 .. 10).map {
+            runTest(Z3SolvingPool, makeParabolicConstraints(0.019), excelResults)
+        }
+
+
+        println(excelResults)
+        val x = 4;
+    }
+
+
+    private fun `runTest`(
+            solverFactory: ConstraintSolvingPoolFactory,
+            constraintSpec: ConstraintSet,
+            excelResults: ExcelResults? = null
+    ): Unit = constraintSpec.run {
         //setup
         val constraints = constraints
                 .map { compiler.compile(it) }
@@ -188,7 +240,30 @@ class Benchmarks {
 //
 //        assertThat(actualDispersion).isEqualTo(dispersion, Offset.offset(fudgeFactor * dispersion))
 
+        //assert 3 -- publish to excel stuff
+        excelResults?.let {
+            it.results += ExcelResult(
+                    velocityFeasible = results.size.toDouble() / timeTaken,
+                    dispersion = dispersion,
+                    timeToAllRegions = calcPointsTakenUntilAllRegionsSampled(results, constraintSpec)
+            )
+        }
+
         Unit
+    }
+}
+
+data class ExcelResult(val velocityFeasible: Double, val dispersion: Double, val timeToAllRegions: Int?)
+data class ExcelResults(var results: List<ExcelResult> = emptyList()) {
+    override fun toString(): String {
+        val builder = StringBuilder()
+        builder.append("velocityFeasible, dispersion, timeToAllRegions")
+        builder.append("\n")
+        results.joinTo(builder, separator = "\n") { result -> result.run {
+            "$velocityFeasible, $dispersion, $timeToAllRegions"
+        }}
+
+        return builder.toString()
     }
 }
 
@@ -204,6 +279,19 @@ fun expand(inputs: List<String>, values: List<Double>): ImmutableList<InputVecto
     }
 
     return results
+}
+
+fun calcPointsTakenUntilAllRegionsSampled(values: List<InputVector>, constraintSpec: Benchmarks.ConstraintSet): Int? {
+    var remainingUnsatisfiedRegions = constraintSpec.feasibleRegions
+
+    for((index, candidate) in values.withIndex()){
+        val passingRegion = remainingUnsatisfiedRegions.singleOrNull { candidate in it }
+        if(passingRegion != null) remainingUnsatisfiedRegions -= passingRegion
+
+        if(remainingUnsatisfiedRegions.isEmpty()) return index + 1
+    }
+
+    return null
 }
 
 object TEAMCITY {
