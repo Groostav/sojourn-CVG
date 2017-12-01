@@ -53,6 +53,7 @@ class ContextConfigurator(val z3: Context){
 
     infix fun BoolExpr.implies(right: BoolExpr): BoolExpr = z3.mkImplies(this, right)
     operator fun BoolExpr.not() = z3.mkNot(this)
+    infix fun BoolExpr.and(right: BoolExpr): BoolExpr = z3.mkAnd(this, right)
 
     operator fun ArithExpr.times(right: ArithExpr): ArithExpr = z3.mkMul(this, right)
     operator fun ArithExpr.div(right: ArithExpr): ArithExpr = z3.mkDiv(this, right)

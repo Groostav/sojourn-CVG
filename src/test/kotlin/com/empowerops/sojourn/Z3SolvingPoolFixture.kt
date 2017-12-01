@@ -125,6 +125,11 @@ class Z3SolvingPoolFixture {
             listOf("abs(x1) < 1", "abs(x2) < 1", "abs(x2) > 0.5")
     )
 
+    @Test fun `equality`() = runTest(
+            mapOf("x1" to -1.0 .. + 1.0, "x2" to -1.0 .. +1.0),
+            listOf("x1 == x2 +/- 0.1")
+    )
+
     private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {
         val inputs = inputs2.map { (key, value) -> InputVariable(key, value.start, value.endInclusive) }
 

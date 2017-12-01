@@ -7,7 +7,13 @@ import kotlinx.collections.immutable.*
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.TerminalNode
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.*
+import java.util.stream.Stream
+import java.lang.reflect.AccessibleObject.setAccessible
+
+
 
 class Z3SolvingPool(
         val inputs: List<InputVariable>,
@@ -49,13 +55,37 @@ class Z3SolvingPool(
     companion object: ConstraintSolvingPoolFactory {
 
         init {
-            println("PATH is ${System.getenv("PATH")}")
-            println("java.library.path is ${System.getProperty("java.library.path")}")
+            // set sys_paths to null; this will force a re-parse of the java.library.path by System.loadLibrary,
+            // thus pushing our changes. 
+            ClassLoader::class.java.getDeclaredField("sys_paths").apply {
+                isAccessible = true
+                set(null, null)
+            }
 
-//            System.loadLibrary("msvcr110") //TBD: preloading this things deps should mean we can get it off the PATH.
-            System.loadLibrary("libz3")
-            System.loadLibrary("libz3java")
+            val oldPathValues = (System.getProperty("java.library.path") ?: "")
+                    .split(';')
+                    .toSet()
+
+            val newLibraryPath = System.getProperty("java.class.path").split(";")
+                    .map { Paths.get(it).parent }
+                    .asSequence()
+                    .distinct()
+                    .flatMap { Files.walk(it).asSequence() }
+                    .filter { it.toString().let { it.endsWith(".dll") || it.endsWith(".so") || it.endsWith(".lib") }}
+                    .map { it.parent }
+                    .toSet()
+                    .let { oldPathValues + (it - oldPathValues) }
+                    .map { it.toString() }
+                    .filter { it.isNotBlank() }
+                    .joinToString(";")
+
+            System.setProperty("java.library.path", newLibraryPath)
+
+            listOf("msvcr110", "vcomp110", "libz3", "libz3java")
+                    .map { System.loadLibrary(it) }
         }
+
+        fun <T> Stream<T>.asSequence(): Sequence<T> = Sequence(this::iterator)
 
         override fun create(
                 inputSpec: List<InputVariable>,
@@ -140,12 +170,12 @@ class Z3SolvingPool(
         val exprs: Deque<ArithExpr> = LinkedList()
 
         override fun exitBooleanExpr(ctx: BooleanExprContext) = z3 {
-            val transcoded = when {
+            val dk = when {
                 ctx.callsBinaryOp() -> {
                     val right = exprs.pop()
                     val left = exprs.pop()
 
-                    when {
+                    requirements += when {
                         ctx.gt() != null -> left gt right
                         ctx.lt() != null -> left lt right
                         ctx.gteq() != null -> left gte right
@@ -157,13 +187,10 @@ class Z3SolvingPool(
                 ctx.eq() != null -> {
                     val (offset, right, left) = exprs.pop(3)
 
-
+                    requirements += (left gte right - offset) and (left lte right + offset)
                 }
                 else -> TODO("unknown: ${ctx.text}")
             }
-            TODO()
-
-//            appendInstruction(transcoded)
         }
 
         override fun exitScalarExpr(ctx: ScalarExprContext) = z3 {

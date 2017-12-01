@@ -38,7 +38,6 @@ val p = project {
     }
 
     dependenciesTest {
-        compile("org.choco-solver:choco-solver:jar:sources:4.0.4")
         compile("org.testng:testng:6.11")
         compile("org.assertj:assertj-core:3.8.0")
         compile("org.jetbrains.kotlin:kotlin-stdlib:jar:sources:${Versions.kotlin}")
