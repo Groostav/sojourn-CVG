@@ -56,7 +56,9 @@ class Z3SolvingPool(
 
         init {
             // set sys_paths to null; this will force a re-parse of the java.library.path by System.loadLibrary,
-            // thus pushing our changes. 
+            // thus pushing our changes.
+            // note we might be able to do this with Unsafe:
+            // https://javax0.wordpress.com/2017/05/03/hacking-the-integercache-in-java-9/
             ClassLoader::class.java.getDeclaredField("sys_paths").apply {
                 isAccessible = true
                 set(null, null)
