@@ -113,6 +113,7 @@ class Benchmarks {
             (1..200).associate { "x$it" to 10.75 }.toInputVector(),
             seeds = immutableListOf((1..200).associate { "x$it" to 10.75 }.toInputVector()),
             dispersion = 0.95, //TODO: this value doesnt seem correct at all. How is 200 ranges of [10.5..11] variance ~= 1.0?
+                               // maybe this is some kind of diagonal value? (remember the space is a cube)
             targetSampleSize = 200
     )
 
@@ -197,36 +198,41 @@ class Benchmarks {
     @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
 
 
-    @Test fun solveThings() {
+    @Test fun generateReportData() {
 
-        val specs = listOf(
-//                ParabolaRootsTypeZero,
-                ParabolaRootsTypeOne,
-                ParabolaRootsTypeTwo,
-                ParabolaRootsTypeThree
+        val specs = mapOf(
+                "P118" to P118,
+                "200D corner" to TopCorner200D,
+                "Parabola type 0" to ParabolaRootsTypeZero,
+                "Parabola type 1" to ParabolaRootsTypeOne,
+                "Parabola type 2" to ParabolaRootsTypeTwo,
+                "Parabola type 3" to ParabolaRootsTypeThree,
+                "Parabola type 4" to ParabolaRootsTypeFour
         )
 
-        for(strategy in listOf(
-//                RandomSamplingPool1234,
-//                RandomWalkingPool1234,
-                Z3SolvingPool
+        for((stratName, strategy) in mapOf(
+                "Random Sampling" to RandomSamplingPool1234,
+                "Improoving" to RandomWalkingPool1234,
+                "SMT" to Z3SolvingPool
         )){
 
-            println("strategy: $strategy")
+            println("strategy: $stratName")
             println()
 
-            for((index, constraintSpec) in specs.withIndex()){
+            for((index, constraintSpec) in specs.entries.withIndex()){
 
-                val constraintSpec = if(strategy == Z3SolvingPool) constraintSpec.copy(targetSampleSize = 20) else constraintSpec
+                var (specName, constraint) = constraintSpec
 
-                println("type: $index")
+                constraint = if(strategy == Z3SolvingPool) constraint.copy(targetSampleSize = 40) else constraint
+
+                println(specName)
                 println()
 
                 val excelResults = ExcelResults()
 
                 (1 .. 10).map {
                     try {
-                        runTest(RandomWalkingPool1234, constraintSpec, excelResults)
+                        runTest(strategy, constraint, excelResults)
                     }
                     catch(ex: NoResultsException){
                         excelResults.results += NoResultsGenerated
@@ -241,7 +247,7 @@ class Benchmarks {
 
 
 
-    private fun `runTest`(
+    private fun runTest(
             solverFactory: ConstraintSolvingPoolFactory,
             constraintSpec: ConstraintSet,
             excelResults: ExcelResults? = null
@@ -281,7 +287,7 @@ class Benchmarks {
         excelResults?.let {
             it.results += ExcelResult(
                     velocityFeasible = results.size.toDouble() / timeTaken,
-                    dispersion = dispersion,
+                    dispersion = actualDispersion,
                     timeToAllRegions = calcPointsTakenUntilAllRegionsSampled(results, constraintSpec)
             )
         }
@@ -299,8 +305,8 @@ sealed class ExcelResult {
 }
 data class SuccessfulExcelResult(override val velocityFeasible: Double, override val dispersion: Double, override val timeToAllRegions: Int?): ExcelResult()
 object NoResultsGenerated: ExcelResult() {
-    override val velocityFeasible = Double.NaN
-    override val dispersion = Double.NaN
+    override val velocityFeasible = 0.0
+    override val dispersion = 0.0
     override val timeToAllRegions: Int? = null
 }
 
