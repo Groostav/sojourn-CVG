@@ -75,9 +75,11 @@ class Benchmarks {
             )
     )
 
+    val ParabolaRootsTypeZero = makeParabolicConstraints(1.0)
     val ParabolaRootsTypeOne = makeParabolicConstraints(0.1)
     val ParabolaRootsTypeTwo = makeParabolicConstraints(0.01)
     val ParabolaRootsTypeThree = makeParabolicConstraints(0.001)
+    val ParabolaRootsTypeFour = makeParabolicConstraints(0.0001)
 
     val BriandeadInequalitySet = ConstraintSet(
             name = "Braindead",
@@ -196,15 +198,47 @@ class Benchmarks {
 
 
     @Test fun solveThings() {
-        val excelResults = ExcelResults()
-        val constraintSpec = ParabolaRootsTypeOne.copy(targetSampleSize = 20)
 
-        (1 .. 10).map {
-            runTest(Z3SolvingPool, constraintSpec, excelResults)
+        val specs = listOf(
+//                ParabolaRootsTypeZero,
+                ParabolaRootsTypeOne,
+                ParabolaRootsTypeTwo,
+                ParabolaRootsTypeThree
+        )
+
+        for(strategy in listOf(
+//                RandomSamplingPool1234,
+//                RandomWalkingPool1234,
+                Z3SolvingPool
+        )){
+
+            println("strategy: $strategy")
+            println()
+
+            for((index, constraintSpec) in specs.withIndex()){
+
+                val constraintSpec = if(strategy == Z3SolvingPool) constraintSpec.copy(targetSampleSize = 20) else constraintSpec
+
+                println("type: $index")
+                println()
+
+                val excelResults = ExcelResults()
+
+                (1 .. 10).map {
+                    try {
+                        runTest(RandomWalkingPool1234, constraintSpec, excelResults)
+                    }
+                    catch(ex: NoResultsException){
+                        excelResults.results += NoResultsGenerated
+                    }
+                }
+
+                println(excelResults)
+                println()
+            }
         }
-
-        println(excelResults)
     }
+
 
 
     private fun `runTest`(
@@ -232,7 +266,8 @@ class Benchmarks {
         TEAMCITY += "$situationKey-variance" to actualDispersion
         TEAMCITY += "$situationKey-time" to timeTaken
 
-        if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
+//        if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
+        if(results.isEmpty()) throw NoResultsException(situationKey)
 
         //assert 2 -- red/green assertions
         assertThat(results).allMatch { point -> constraints.passFor(point) }
@@ -255,7 +290,23 @@ class Benchmarks {
     }
 }
 
-data class ExcelResult(val velocityFeasible: Double, val dispersion: Double, val timeToAllRegions: Int?)
+class NoResultsException(val name: String): RuntimeException("'$name' failed to generate any results")
+
+sealed class ExcelResult {
+    abstract val velocityFeasible: Double
+    abstract val dispersion: Double
+    abstract val timeToAllRegions: Int?
+}
+data class SuccessfulExcelResult(override val velocityFeasible: Double, override val dispersion: Double, override val timeToAllRegions: Int?): ExcelResult()
+object NoResultsGenerated: ExcelResult() {
+    override val velocityFeasible = Double.NaN
+    override val dispersion = Double.NaN
+    override val timeToAllRegions: Int? = null
+}
+
+fun ExcelResult(velocityFeasible: Double, dispersion: Double, timeToAllRegions: Int?)
+        = SuccessfulExcelResult(velocityFeasible, dispersion, timeToAllRegions)
+
 data class ExcelResults(var results: List<ExcelResult> = emptyList()) {
     override fun toString(): String {
         val builder = StringBuilder()
