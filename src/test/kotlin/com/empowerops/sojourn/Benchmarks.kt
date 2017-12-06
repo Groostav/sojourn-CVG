@@ -75,6 +75,10 @@ class Benchmarks {
             )
     )
 
+    val ParabolaRootsTypeOne = makeParabolicConstraints(0.1)
+    val ParabolaRootsTypeTwo = makeParabolicConstraints(0.01)
+    val ParabolaRootsTypeThree = makeParabolicConstraints(0.001)
+
     val BriandeadInequalitySet = ConstraintSet(
             name = "Braindead",
             inputs = listOf("x1", "x2", "x3", "x4", "x5").map {
@@ -191,17 +195,15 @@ class Benchmarks {
     @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
 
 
-    @Test
-    fun solveThings() {
+    @Test fun solveThings() {
         val excelResults = ExcelResults()
+        val constraintSpec = ParabolaRootsTypeOne.copy(targetSampleSize = 20)
 
         (1 .. 10).map {
-            runTest(Z3SolvingPool, makeParabolicConstraints(0.019), excelResults)
+            runTest(Z3SolvingPool, constraintSpec, excelResults)
         }
 
-
         println(excelResults)
-        val x = 4;
     }
 
 

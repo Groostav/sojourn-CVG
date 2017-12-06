@@ -18,7 +18,9 @@ class ContextConfigurator(val z3: Context){
     operator fun ArithExpr.times(right: Int): ArithExpr = z3.mkMul(this, right.zr)
     operator fun ArithExpr.div(right: Int): ArithExpr = z3.mkDiv(this, right.zr)
     operator fun ArithExpr.plus(right: Int): ArithExpr = z3.mkAdd(this, right.zr)
+    operator fun ArithExpr.plus(right: Double): ArithExpr = z3.mkAdd(this, right.zr)
     operator fun ArithExpr.minus(right: Int): ArithExpr = z3.mkSub(this, right.zr)
+    operator fun ArithExpr.minus(right: Double): ArithExpr = z3.mkSub(this, right.zr)
     fun pow(left: ArithExpr, right: Int) = z3.mkPower(left, right.zr)
 
     infix fun Int.gt(right: ArithExpr): BoolExpr = z3.mkGt(this.zr, right)
@@ -54,6 +56,7 @@ class ContextConfigurator(val z3: Context){
     infix fun BoolExpr.implies(right: BoolExpr): BoolExpr = z3.mkImplies(this, right)
     operator fun BoolExpr.not() = z3.mkNot(this)
     infix fun BoolExpr.and(right: BoolExpr): BoolExpr = z3.mkAnd(this, right)
+    infix fun BoolExpr.or(right: BoolExpr): BoolExpr = z3.mkOr(this, right)
 
     operator fun ArithExpr.times(right: ArithExpr): ArithExpr = z3.mkMul(this, right)
     operator fun ArithExpr.div(right: ArithExpr): ArithExpr = z3.mkDiv(this, right)
@@ -78,6 +81,7 @@ class ContextConfigurator(val z3: Context){
     //vals
     val Int.z get() = z3.mkInt(this)
     val Int.zr get() = z3.mkReal(this)
+    val Double.zr get() = z3.mkReal(this.toString())
     val BigDecimal.zr get() = z3.mkReal(this.toString())
 
     val realSort: Sort = z3.realSort

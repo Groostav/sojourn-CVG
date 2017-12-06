@@ -11,9 +11,6 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
 import java.util.stream.Stream
-import java.lang.reflect.AccessibleObject.setAccessible
-
-
 
 class Z3SolvingPool(
         val inputs: List<InputVariable>,
@@ -142,8 +139,12 @@ class Z3SolvingPool(
 
             for(index in 1 until pointCount){
                 solver += model.constDecls
-                        .filter { it.name.toString() in inputs.map { it.name} }
-                        .map { model.getConstInterp(it) as ArithExpr neq Real(it.name) }
+                        .filter { it.name.toString() in inputs.map { it.name } }
+                        .map { func ->
+                            val offset = 0.000005 * inputs.single { it.name == func.name.toString() }.span
+                            val value = model.getConstInterp(func) as ArithExpr
+                            (Real(func.name) lt (value - offset)) or (Real(func.name) gt (value + offset))
+                        }
 
                 resolved = solver.check()
                 if(resolved == Status.UNSATISFIABLE) { break }
@@ -189,7 +190,13 @@ class Z3SolvingPool(
                 ctx.eq() != null -> {
                     val (offset, right, left) = exprs.pop(3)
 
-                    requirements += (left gte right - offset) and (left lte right + offset)
+                    val (offsetSym, rightSym, leftSym) = listOf(offset, right, left).fold(emptyList<ArithExpr>()){ accum, next ->
+                        val nextSymbol = z3.mkAnonRealConst()
+                        requirements += nextSymbol eq next
+                        accum + nextSymbol
+                    }
+
+                    requirements += (leftSym gte rightSym - offsetSym) and (leftSym lte rightSym + offsetSym)
                 }
                 else -> TODO("unknown: ${ctx.text}")
             }

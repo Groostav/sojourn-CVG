@@ -13,6 +13,8 @@ inline fun Map<String, Double>.toInputVector() = toImmutableHashMap()
 
 data class InputVariable(val name: String, val lowerBound: Double, val upperBound: Double)
 
+val InputVariable.span: Double get() = upperBound - lowerBound
+
 interface ConstraintSolvingPoolFactory {
     fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>): ConstraintSolvingPool
 }
