@@ -5,7 +5,6 @@ import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
 import kotlinx.collections.immutable.*
 import org.assertj.core.api.Assertions.*
-import org.testng.SkipException
 import org.testng.annotations.Test
 import java.util.*
 
@@ -67,7 +66,7 @@ class Benchmarks {
             ),
             centroid = immutableMapOf("x" to -0.5),
             dispersion = 1.0,
-            targetSampleSize = 1000,
+            targetSampleSize = 20_000,
             seeds = immutableListOf(InputVector("x" to -2.0)),
             feasibleRegions = listOf(
                     mapOf("x" to (-2.0 - offset) .. (-2.0 + offset)),
@@ -80,6 +79,7 @@ class Benchmarks {
     val ParabolaRootsTypeTwo = makeParabolicConstraints(0.01)
     val ParabolaRootsTypeThree = makeParabolicConstraints(0.001)
     val ParabolaRootsTypeFour = makeParabolicConstraints(0.0001)
+    val ParabolaRootsTypeFive = makeParabolicConstraints(0.00001)
 
     val BriandeadInequalitySet = ConstraintSet(
             name = "Braindead",
@@ -175,7 +175,12 @@ class Benchmarks {
             ),
             centroid = immutableMapOf(),
             dispersion = Double.NaN,
-            targetSampleSize = 5
+            targetSampleSize = 1000,
+            seeds = immutableListOf(InputVector(
+                    "x1" to 1.0, "x2" to 45.0, "x3" to 15.0, "x4" to 6.0, "x5" to 39.0,
+                    "x6" to 20.0, "x7" to 11.0, "x8" to 35.0, "x9" to 25.0, "x10" to 16.0,
+                    "x11" to 40.0, "x12" to 30.0, "x13" to 20.0, "x14" to 46.0, "x15" to 35.0
+            ))
     )
 
 
@@ -207,7 +212,8 @@ class Benchmarks {
                 "Parabola type 1" to ParabolaRootsTypeOne,
                 "Parabola type 2" to ParabolaRootsTypeTwo,
                 "Parabola type 3" to ParabolaRootsTypeThree,
-                "Parabola type 4" to ParabolaRootsTypeFour
+                "Parabola type 4" to ParabolaRootsTypeFour,
+                "Parabola type 5" to ParabolaRootsTypeFive
         )
 
         for((stratName, strategy) in mapOf(
@@ -219,11 +225,14 @@ class Benchmarks {
             println("strategy: $stratName")
             println()
 
-            for((index, constraintSpec) in specs.entries.withIndex()){
-
-                var (specName, constraint) = constraintSpec
-
-                constraint = if(strategy == Z3SolvingPool) constraint.copy(targetSampleSize = 40) else constraint
+            for((specName, constraint) in specs.entries){
+                
+                val constraint = when {
+                    strategy == Z3SolvingPool -> constraint.copy(targetSampleSize = 40)
+                    constraint == P118 && strategy == RandomWalkingPool1234 -> constraint.copy(targetSampleSize = 100)
+                    constraint == TopCorner200D && strategy == RandomWalkingPool1234 -> constraint.copy(targetSampleSize = 50)
+                    else -> constraint
+                }
 
                 println(specName)
                 println()
@@ -235,7 +244,7 @@ class Benchmarks {
                         runTest(strategy, constraint, excelResults)
                     }
                     catch(ex: NoResultsException){
-                        excelResults.results += NoResultsGenerated
+                        //continue
                     }
                 }
 
@@ -273,7 +282,16 @@ class Benchmarks {
         TEAMCITY += "$situationKey-time" to timeTaken
 
 //        if(results.isEmpty()) throw SkipException("$situationKey failed to generate any results")
-        if(results.isEmpty()) throw NoResultsException(situationKey)
+        if(results.isEmpty()) {
+            excelResults?.let {
+                it.results += NoResultsGenerated(
+                        requestedPointCount = targetSampleSize,
+                        createdFeasiblePointCount = results.size,
+                        timeTakenMillis = timeTaken
+                )
+            }
+            throw NoResultsException(situationKey)
+        }
 
         //assert 2 -- red/green assertions
         assertThat(results).allMatch { point -> constraints.passFor(point) }
@@ -285,10 +303,14 @@ class Benchmarks {
 
         //assert 3 -- publish to excel stuff
         excelResults?.let {
-            it.results += ExcelResult(
-                    velocityFeasible = results.size.toDouble() / timeTaken,
+            it.results += SuccessfulExcelResult(
+                    requestedPointCount = targetSampleSize,
+                    createdFeasiblePointCount = results.size,
+                    timeTakenMillis = timeTaken,
+                    velocityFeasible = (results.size.toDouble() / timeTaken) * 1000.0,
                     dispersion = actualDispersion,
-                    timeToAllRegions = calcPointsTakenUntilAllRegionsSampled(results, constraintSpec)
+                    timeToAllRegions = calcPointsTakenUntilAllRegionsSampled(results, constraintSpec),
+                    hitPercentage = results.size.toDouble() / targetSampleSize * 100.0
             )
         }
 
@@ -296,30 +318,45 @@ class Benchmarks {
     }
 }
 
-class NoResultsException(val name: String): RuntimeException("'$name' failed to generate any results")
+class NoResultsException(name: String): RuntimeException("'$name' failed to generate any results")
 
 sealed class ExcelResult {
+    abstract val requestedPointCount: Int
+    abstract val createdFeasiblePointCount: Int
+    abstract val timeTakenMillis: Long
     abstract val velocityFeasible: Double
     abstract val dispersion: Double
     abstract val timeToAllRegions: Int?
+    abstract val hitPercentage: Double
 }
-data class SuccessfulExcelResult(override val velocityFeasible: Double, override val dispersion: Double, override val timeToAllRegions: Int?): ExcelResult()
-object NoResultsGenerated: ExcelResult() {
+data class SuccessfulExcelResult(
+        override val requestedPointCount: Int,
+        override val createdFeasiblePointCount: Int,
+        override val timeTakenMillis: Long,
+        override val velocityFeasible: Double,
+        override val dispersion: Double,
+        override val timeToAllRegions: Int?,
+        override val hitPercentage: Double
+): ExcelResult()
+
+data class NoResultsGenerated(
+        override val requestedPointCount: Int,
+        override val createdFeasiblePointCount: Int,
+        override val timeTakenMillis: Long
+): ExcelResult() {
     override val velocityFeasible = 0.0
     override val dispersion = 0.0
     override val timeToAllRegions: Int? = null
+    override val hitPercentage: Double = 0.0
 }
-
-fun ExcelResult(velocityFeasible: Double, dispersion: Double, timeToAllRegions: Int?)
-        = SuccessfulExcelResult(velocityFeasible, dispersion, timeToAllRegions)
 
 data class ExcelResults(var results: List<ExcelResult> = emptyList()) {
     override fun toString(): String {
         val builder = StringBuilder()
-        builder.append("velocityFeasible, dispersion, timeToAllRegions")
+        builder.append("requestedPointCount, createdFeasiblePointCount, timeTaken (ms), velocityFeasible (pt/s), dispersion (distance), triesToAllRegions (count), hitPercentage (percent)")
         builder.append("\n")
         results.joinTo(builder, separator = "\n") { result -> result.run {
-            "$velocityFeasible, $dispersion, $timeToAllRegions"
+            "$requestedPointCount, $createdFeasiblePointCount, $timeTakenMillis, $velocityFeasible, $dispersion, $timeToAllRegions, $hitPercentage"
         }}
 
         return builder.toString()
