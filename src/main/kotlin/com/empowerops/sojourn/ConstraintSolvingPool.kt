@@ -16,7 +16,7 @@ data class InputVariable(val name: String, val lowerBound: Double, val upperBoun
 val InputVariable.span: Double get() = upperBound - lowerBound
 
 interface ConstraintSolvingPoolFactory {
-    fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>): ConstraintSolvingPool
+    fun create(inputSpec: List<InputVariable>, constraints: Collection<BabelExpression>): ConstraintSolvingPool
 }
 
 interface ConstraintSolvingPool {
@@ -25,4 +25,4 @@ interface ConstraintSolvingPool {
 
 
 
-fun Double.isPassedConstraint(): Boolean = this <= 0.0
+fun Double.isPassedConstraint(tolerance: Double = 0.0): Boolean = this <= 0.0 + tolerance

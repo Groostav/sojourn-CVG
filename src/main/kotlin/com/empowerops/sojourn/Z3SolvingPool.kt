@@ -12,9 +12,9 @@ import java.nio.file.Paths
 import java.util.*
 import java.util.stream.Stream
 
-class Z3SolvingPool(
+class Z3SolvingPool private constructor(
         val inputs: List<InputVariable>,
-        val constraints: List<BabelExpression>
+        val constraints: Collection<BabelExpression>
 ): ConstraintSolvingPool {
 
 
@@ -88,12 +88,12 @@ class Z3SolvingPool(
 
         override fun create(
                 inputSpec: List<InputVariable>,
-                constraints: List<BabelExpression>
+                constraints: Collection<BabelExpression>
         )
-                = Z3SolvingPool(inputSpec, constraints).apply { checkConstraints() }
+                = Z3SolvingPool(inputSpec, constraints).apply { applyConstraints() }
     }
 
-    private fun checkConstraints() = z3 {
+    private fun applyConstraints() = z3 {
 
         require(solver.check() == Status.SATISFIABLE) { "before adding constraints solver SAT is ${solver.check()}:\n $solver " }
 
@@ -112,8 +112,9 @@ class Z3SolvingPool(
 
             transcoder.requirements.forEach { solver += it }
         }
-
     }
+
+    class UnsatisfiableConstraintsException(solver: String): RuntimeException(solver)
 
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
 
@@ -125,14 +126,17 @@ class Z3SolvingPool(
 
         var resolved = solver.check()
 
-        if(resolved == Status.UNSATISFIABLE) return immutableListOf()
+        if(resolved == Status.UNSATISFIABLE) throw UnsatisfiableConstraintsException(solver.toString())
 
         var model = solver.model
         val seed = model.buildInputVector(inputs)
 
         if ( ! constraints.passFor(seed)) {
-            return immutableListOf()
+            //this is likely from a rounding error, we're gonna have to think of something smarter at some point.
+//            return immutableListOf()
+            val x = 4;
         }
+        
         var results = immutableListOf(seed)
 
         z3 {
@@ -140,14 +144,21 @@ class Z3SolvingPool(
             for(index in 1 until pointCount){
                 solver += model.constDecls
                         .filter { it.name.toString() in inputs.map { it.name } }
-                        .map { func ->
+                        .flatMap { func ->
                             val offset = 0.000005 * inputs.single { it.name == func.name.toString() }.span
                             val value = model.getConstInterp(func) as ArithExpr
-                            (Real(func.name) lt (value - offset)) or (Real(func.name) gt (value + offset))
+                            val temp = z3.mkAnonRealConst()
+                            listOf(
+                                    temp eq value,
+                                    (Real(func.name) lt (temp - offset)) or (Real(func.name) gt (temp + offset))
+                            )
                         }
 
                 resolved = solver.check()
-                if(resolved == Status.UNSATISFIABLE) { break }
+                if(resolved == Status.UNSATISFIABLE) {
+                    //likely our point negation strategy pushed us into UNSAT
+                    break
+                }
 
                 model = solver.model
                 val nextResult = model.buildInputVector(inputs)

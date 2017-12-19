@@ -4,9 +4,9 @@ import com.empowerops.babel.BabelExpression
 import kotlinx.collections.immutable.*
 import java.util.*
 
-class RandomSamplingPool(
+class RandomSamplingPool private constructor(
         val inputVariables: List<InputVariable>,
-        val constraints: List<BabelExpression>,
+        val constraints: Collection<BabelExpression>,
         val random: Random
 ): ConstraintSolvingPool {
 
@@ -34,13 +34,13 @@ class RandomSamplingPool(
             .toInputVector()
 
     companion object: ConstraintSolvingPoolFactory {
-        override fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>)
+        override fun create(inputSpec: List<InputVariable>, constraints: Collection<BabelExpression>)
                 = RandomSamplingPool(inputSpec, constraints, Random())
 
     }
 
     class Factory(val random: Random): ConstraintSolvingPoolFactory {
-        override fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>)
+        override fun create(inputSpec: List<InputVariable>, constraints: Collection<BabelExpression>)
                 = RandomSamplingPool(inputSpec, constraints, random)
 
     }

@@ -31,6 +31,7 @@ val p = project {
                 "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
         )
 
+        compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:0.20")
         compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
@@ -41,6 +42,7 @@ val p = project {
         compile("org.testng:testng:6.11")
         compile("org.assertj:assertj-core:3.8.0")
         compile("org.jetbrains.kotlin:kotlin-stdlib:jar:sources:${Versions.kotlin}")
+        compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:jar:sources:0.20")
     }
 
     assemble {

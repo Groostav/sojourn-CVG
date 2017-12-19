@@ -5,9 +5,9 @@ import kotlinx.collections.immutable.*
 import kotlinx.collections.immutable.immutableListOf
 import java.util.*
 
-class RandomBoundedWalkingPool(
+class RandomBoundedWalkingImproverPool private constructor(
         val inputVariables: List<InputVariable>,
-        val constraints: List<BabelExpression>,
+        val constraints: Collection<BabelExpression>,
         val random: Random
 ): ConstraintSolvingPool {
 
@@ -74,14 +74,14 @@ class RandomBoundedWalkingPool(
     }
 
     companion object: ConstraintSolvingPoolFactory {
-        override fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>)
-                = RandomBoundedWalkingPool(inputSpec, constraints, Random())
+        override fun create(inputSpec: List<InputVariable>, constraints: Collection<BabelExpression>)
+                = RandomBoundedWalkingImproverPool(inputSpec, constraints, Random())
 
     }
 
     class Factory(val random: Random): ConstraintSolvingPoolFactory {
-        override fun create(inputSpec: List<InputVariable>, constraints: List<BabelExpression>)
-                = RandomBoundedWalkingPool(inputSpec, constraints, random)
+        override fun create(inputSpec: List<InputVariable>, constraints: Collection<BabelExpression>)
+                = RandomBoundedWalkingImproverPool(inputSpec, constraints, random)
 
     }
 }
