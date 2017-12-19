@@ -74,7 +74,7 @@ suspend fun makeSamples(
                 pool += roundResults
                 qualityResults += roundResults.filter { constraints.passFor(it) }
 
-                nextRoundTarget = (targetPointCount - pool.size).coerceIn(1 .. 1_000)
+                nextRoundTarget = (targetPointCount - pool.size).coerceIn(1 .. TOUGH_PATH_MAX_TARGET)
 
                 val samplingWin = samplingResults.size.toDouble() / samplingTime
                 val improoverWin = improoverResults.size.toDouble() / improoverTime

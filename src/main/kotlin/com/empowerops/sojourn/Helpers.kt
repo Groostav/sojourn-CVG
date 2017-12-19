@@ -33,13 +33,16 @@ infix fun InputVector.vecMinus(other: InputVector): InputVector {
 infix fun InputVector.vecPlus(other: InputVector): InputVector {
     require(this.size == other.size)
 
-    val result = InputVector().builder()
+    var result = InputVector()
 
+    //according to jprofiler the destructuring here causes an an Arrays.copyOf call
+    // that takes 20% of our overall overhead.
+    // need a more compact and faster datatype for InputVector.
     for((key, value) in this){
-        result += key to value + other.getValue(key)
+        result = result.put(key, value + other.getValue(key))
     }
 
-    return result.build()
+    return result
 }
 
 fun List<InputVariable>.canProduce(vector: InputVector): Boolean{

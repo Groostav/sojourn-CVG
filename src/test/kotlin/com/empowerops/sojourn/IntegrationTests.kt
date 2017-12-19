@@ -20,6 +20,8 @@ class IntegrationTests {
 
         println("took $time ms")
 
+        while(true);
+
         Unit
     }
 }
