@@ -6,6 +6,13 @@ import kotlinx.collections.immutable.*
 import kotlin.system.measureTimeMillis
 
 
+//inline fun InputVector(vararg inputValuesByName: Pair<String, Double>): InputVector = immutableHashMapOf(*inputValuesByName)
+//inline fun Iterable<Pair<String, Double>>.toInputVector() = toMap().toImmutableHashMap()
+//inline fun Map<String, Double>.toInputVector() = toImmutableHashMap()
+
+fun Double.isPassedConstraint(): Boolean = this <= 0.0
+
+
 fun <R> measureTime(op: () -> R): Pair<Long, R> {
     var result: Any? = null
     val time = measureTimeMillis {
@@ -15,32 +22,34 @@ fun <R> measureTime(op: () -> R): Pair<Long, R> {
     return time to (result as R)
 }
 
-operator fun InputVector.div(scalar: Double): InputVector = mapValues { key, value -> value / scalar }
-operator fun InputVector.times(scalar: Double): InputVector = mapValues { key, value -> value * scalar }
-
-infix fun InputVector.vecMinus(other: InputVector): InputVector {
-    require(this.size == other.size)
-
-    val result = InputVector().builder()
-
-    for((key, value) in this){
-        result += key to value - other.getValue(key)
-    }
-
-    return result.build()
-}
-
-infix fun InputVector.vecPlus(other: InputVector): InputVector {
-    require(this.size == other.size)
-
-    val result = InputVector().builder()
-
-    for((key, value) in this){
-        result += key to value + other.getValue(key)
-    }
-
-    return result.build()
-}
+//operator fun InputVector.div(scalar: Double): InputVector = mapValues { key, value -> value / scalar }
+//operator fun InputVector.times(scalar: Double): InputVector = mapValues { key, value -> value * scalar }
+//
+//infix fun InputVector.vecMinus(other: InputVector): InputVector {
+//    require(this.size == other.size)
+//
+//    val result = InputVector().builder()
+//
+//    for((key, value) in this){
+//        result += key to value - other.getValue(key)
+//    }
+//
+//    return result.build()
+//}
+//
+//infix fun InputVector.vecPlus(other: InputVector): InputVector {
+//    require(this.size == other.size)
+//
+//    this.values
+//
+//    val result = InputVector().builder()
+//
+//    for((key, value) in this){
+//        result += key to value + other.getValue(key)
+//    }
+//
+//    return result.build()
+//}
 
 fun List<InputVariable>.canProduce(vector: InputVector): Boolean{
     

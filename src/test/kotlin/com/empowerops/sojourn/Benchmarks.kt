@@ -52,8 +52,8 @@ class Benchmarks {
             constraints = listOf(
                     "x > 0.0"
             ),
-            centroid = immutableMapOf("x" to 0.5),
-            seeds = immutableListOf(immutableMapOf("x" to 0.5)),
+            centroid = InputVector("x" to 0.5),
+            seeds = immutableListOf(InputVector("x" to 0.5)),
             dispersion = 0.25,
             targetSampleSize = 1_000
     )
@@ -64,7 +64,7 @@ class Benchmarks {
             constraints = listOf(
                     "(x + 2) * (x - 1) == 0 +/- $offset"
             ),
-            centroid = immutableMapOf("x" to -0.5),
+            centroid = InputVector("x" to -0.5),
             dispersion = 1.0,
             targetSampleSize = 20_000,
             seeds = immutableListOf(InputVector("x" to -2.0)),
@@ -91,7 +91,7 @@ class Benchmarks {
                     "x2 + x3 > x4",
                     "x3 + x4 > x5"
             ),
-            centroid = immutableMapOf(
+            centroid = InputVector(
                     "x1" to 0.559,
                     "x2" to 0.619,
                     "x3" to 0.561,
