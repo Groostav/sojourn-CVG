@@ -26,12 +26,12 @@ class Benchmarks {
     @Test fun `random walking brainded inequalities with 100 seeds`() = runTest(RandomWalkingPool1234, BriandeadInequalitySet)
     @Test fun `z3 braindead inequalities`() = runTest(Z3SolvingPool, BriandeadInequalitySet.copy(targetSampleSize = 100))
 
-    @Test fun `sampling top-corner-200D inequalities`() = runTest(RandomSamplingPool1234, TopCorner200D)
+    @Test(enabled = false) fun `sampling top-corner-200D inequalities`() = runTest(RandomSamplingPool1234, TopCorner200D)
     @Test fun `random walking top-corner-200D with one seed`() = runTest(RandomWalkingPool1234, TopCorner200D)
     @Test fun `z3 top-corner-200D`() = runTest(Z3SolvingPool, TopCorner200D.copy(targetSampleSize = 100))
 
-    @Test fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
-    @Test fun `random walking on P118`() = runTest(RandomWalkingPool1234, P118)
+    @Test(enabled = false) fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
+    @Test fun `random walking on P118`() = runTest(RandomWalkingPool1234, P118.copy(targetSampleSize = 10_000))
     @Test fun `z3 on P118`() = runTest(Z3SolvingPool, P118.copy(targetSampleSize = 100))
 
     @Test fun `sampling on tough-single-var`() = runTest(RandomSamplingPool1234, ToughSingleVar)

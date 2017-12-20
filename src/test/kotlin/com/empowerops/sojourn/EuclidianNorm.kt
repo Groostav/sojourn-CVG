@@ -24,14 +24,11 @@ fun findCenter(names: List<String>, points: List<InputVector>): InputVector {
             ?: return names.associate { it to Double.NaN }.toInputVector()
 
     for(point in points){
-        for(key in center.keys){
-            center += key to (center[key]!! + point[key]!!)
-        }
+
+        center = center vecPlus point
     }
 
-    for(key in center.keys){
-        center += key to center[key]!! / points.size
-    }
+    center /= points.size.toDouble()
 
     return center
 }

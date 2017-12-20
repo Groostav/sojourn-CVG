@@ -16,8 +16,8 @@ val SanityCheck = ConstraintSet(
         constraints = listOf(
                 "x > 0.0"
         ).map { compiler.compile(it).expressionOrThrow() },
-        centroid = immutableMapOf("x" to 0.5),
-        seeds = immutableListOf(immutableMapOf("x" to 0.5)),
+        centroid = InputVector("x" to 0.5),
+        seeds = immutableListOf(InputVector("x" to 0.5)),
         dispersion = 0.25,
         targetSampleSize = 1_000
 )
@@ -28,7 +28,7 @@ fun makeParabolicConstraints(offset: Double) = ConstraintSet(
         constraints = listOf(
                 "(x + 2) * (x - 1) == 0 +/- $offset"
         ).map { compiler.compile(it).expressionOrThrow() },
-        centroid = immutableMapOf("x" to -0.5),
+        centroid = InputVector("x" to -0.5),
         dispersion = 1.0,
         targetSampleSize = 20_000,
         seeds = immutableListOf(InputVector("x" to -2.0)),
@@ -55,7 +55,7 @@ val BriandeadInequalitySet = ConstraintSet(
                 "x2 + x3 > x4",
                 "x3 + x4 > x5"
         ).map { compiler.compile(it).expressionOrThrow() },
-        centroid = immutableMapOf(
+        centroid = InputVector(
                 "x1" to 0.559,
                 "x2" to 0.619,
                 "x3" to 0.561,
@@ -137,7 +137,7 @@ val P118 = ConstraintSet(
                 "0 > -x10-x11-x12+85",
                 "0 > -x13-x14-x15+100"
         ).map { compiler.compile(it).expressionOrThrow() },
-        centroid = immutableMapOf(),
+        centroid = InputVector(),
         dispersion = Double.NaN,
         targetSampleSize = 1000,
         seeds = immutableListOf(InputVector(
@@ -169,6 +169,13 @@ data class ConstraintSet(
                     require(innerValue.endInclusive !in outerValue)
                 }
             }
+        }
+
+        seeds.forEach { seed ->
+            for(constraint in constraints){
+                require(constraint.passesFor(seed)){ "constraint $constraint fails for $seed" }
+            }
+
         }
     }
 }
