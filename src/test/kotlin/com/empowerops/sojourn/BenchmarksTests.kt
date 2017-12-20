@@ -1,8 +1,5 @@
 package com.empowerops.sojourn
 
-import com.empowerops.babel.BabelCompiler
-import com.empowerops.babel.BabelExpression
-import com.empowerops.babel.CompilationFailure
 import kotlinx.collections.immutable.*
 import org.assertj.core.api.Assertions.*
 import org.testng.annotations.Test
@@ -96,7 +93,7 @@ class Benchmarks {
             excelResults: ExcelResults? = null
     ): Unit = constraintSpec.run {
         //setup
-//        val excelResults = excelResults ?: ExcelResults()
+        val excelResults = excelResults ?: ExcelResults()
         val solver = solverFactory.create(inputs, constraints)
 
         //act

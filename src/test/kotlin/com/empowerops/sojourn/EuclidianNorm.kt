@@ -1,9 +1,5 @@
 package com.empowerops.sojourn
 
-import kotlinx.collections.immutable.*
-import kotlinx.collections.immutable.immutableMapOf
-import java.util.concurrent.atomic.DoubleAccumulator
-
 
 fun findDispersion(names: List<String>, points: List<InputVector>): Pair<InputVector, Double> {
 

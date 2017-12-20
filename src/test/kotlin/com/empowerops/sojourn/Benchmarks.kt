@@ -6,7 +6,6 @@ import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.immutableListOf
-import kotlinx.collections.immutable.immutableMapOf
 
 private val compiler = BabelCompiler()
 

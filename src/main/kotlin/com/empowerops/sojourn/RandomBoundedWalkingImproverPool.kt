@@ -47,7 +47,7 @@ class RandomBoundedWalkingImproverPool private constructor(
         return results
     }
 
-    private fun makeBoundedOffset(base: InputVector, direction: InputVector): InputVector{
+    private fun makeBoundedOffset(base: InputVector, direction: InputVector): InputVector {
 
         var factor = Double.POSITIVE_INFINITY
 
