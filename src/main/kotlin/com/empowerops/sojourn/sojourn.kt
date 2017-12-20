@@ -16,7 +16,7 @@ val IMPROVER_HANDICAP = 0.1
 val SMT_HANDICAP = 0.005
 val MINIMUM_WIN = 0.01
 
-val TOUGH_PATH_MAX_TARGET = 1_000
+val TOUGH_PATH_MAX_TARGET = 5_000
 val EASY_PATH_MAX_TARGET = 10_000
 
 
@@ -87,7 +87,7 @@ suspend fun makeSamples(
                 }
 
                 nextRoundSamplingTarget = (nextRoundTarget * (samplingWin / totalWin)).toInt().coerceAtLeast(100)
-                nextRoundImprooverTarget = (nextRoundTarget * (improoverWin / totalWin) * IMPROVER_HANDICAP).toIntAtLeast1()
+                nextRoundImprooverTarget = (nextRoundTarget * (improoverWin / totalWin) * IMPROVER_HANDICAP).toInt().coerceAtLeast(10)
                 nextRoundSmtTarget = (nextRoundTarget * (smtWin / totalWin) * SMT_HANDICAP).toIntAtLeast1().coerceAtMost(100)
 
             }

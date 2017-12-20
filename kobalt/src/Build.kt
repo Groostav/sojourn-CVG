@@ -5,7 +5,7 @@ import com.beust.kobalt.plugin.kotlin.*
 
 object Versions {
     val kotlin = "1.1.50"
-    val babel = "0.9"
+    val babel = "0.10"
 }
 
 val bs = buildScript {
@@ -17,8 +17,7 @@ val p = project {
     group = "com.empowerops.sojourn"
     artifactId = name
     version = "0.1"
-
-
+    
     dependencies {
 
         compile(file("deps/z3-4.5.0-win-x86/com.microsoft.z3.jar"))

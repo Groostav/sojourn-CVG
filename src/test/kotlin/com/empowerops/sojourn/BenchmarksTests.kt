@@ -28,13 +28,17 @@ class Benchmarks {
     @Test fun `z3 top-corner-200D`() = runTest(Z3SolvingPool, TopCorner200D.copy(targetSampleSize = 100))
 
     @Test(enabled = false) fun `sampling on P118`() = runTest(RandomSamplingPool1234, P118)
-    @Test fun `random walking on P118`() = runTest(RandomWalkingPool1234, P118.copy(targetSampleSize = 10_000))
+    @Test fun `random walking on P118`() {
+        runTest(RandomWalkingPool1234, P118.copy(targetSampleSize = 10_000))
+
+        while(true);
+    }
     @Test fun `z3 on P118`() = runTest(Z3SolvingPool, P118.copy(targetSampleSize = 100))
 
     @Test fun `sampling on tough-single-var`() = runTest(RandomSamplingPool1234, ToughSingleVar)
     @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
     
-    @Test(enabled = false) fun generateReportData() {
+    @Test fun generateReportData() {
 
         val specs = mapOf(
                 "P118" to P118,

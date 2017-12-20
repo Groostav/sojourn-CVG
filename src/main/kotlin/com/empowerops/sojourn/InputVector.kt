@@ -48,6 +48,9 @@ class InputVector : Map<String, Double> {
 //        val EMPTY: InputVector = InputVector(keys = TreeSet())
     }
 
+    //TODO: this should be backed by some kind of LinkedNavigableSet,
+    // it would mean one less object allocation, and we'd get the (expected) keys.contains() behaviour to be fast.
+    // in the mean time, the jvm's behaviour of
     val _keys: Array<String>
     val _values: DoubleArray
 
@@ -81,14 +84,14 @@ class InputVector : Map<String, Double> {
     }
 
     override val size: Int get() = keys.size
-    override val entries: Set<Map.Entry<String, Double>> get() = _entries ?: EntrySet().also { _entries = it }
+    override val entries: Set<Map.Entry<String, Double>> get() = _entries ?: EntrySet(this).also { _entries = it }
 
     override fun containsValue(value: Double) = value in _values
     override fun containsKey(key: String): Boolean = key in keys
-    override fun get(key: String): Double? = if(key in keys) _values[_keys.indexOf(key)] else null
+    override fun get(key: String): Double? = _keys.indexOf(key).let { if(it == -1) null else _values[it] }
     override fun isEmpty() = size == 0
     override val values: List<Double> get() = __values ?: _values.asList().also { __values = it }
-    override val keys: Set<String> get() = __keys ?: KeySet().also { __keys = it }
+    override val keys: Set<String> get() = __keys ?: KeySet(this).also { __keys = it }
 
     override fun toString(): String = "<${entries.joinToString { (k, v) -> "$k=$v" }}>"
 
@@ -138,22 +141,38 @@ class InputVector : Map<String, Double> {
     }
     inline operator fun div(scalar: Double) = times(1.0/scalar)
 
-    inner class EntrySet: AbstractSet<Map.Entry<String, Double>>() {
-        override val size = this@InputVector.size
-        override fun contains(element: Map.Entry<String, Double>) = element.key in keys
+    class EntrySet(val src: InputVector): AbstractSet<Map.Entry<String, Double>>() {
+        override val size = src.size
+        override fun contains(element: Map.Entry<String, Double>) = element.key in src.keys
 
         override fun iterator(): Iterator<Map.Entry<String, Double>> = object: Iterator<Map.Entry<String, Double>> {
-            val keysIter = keys.iterator()
+            val keysIter = src.keys.iterator()
             var index: Int = 0
 
             override fun hasNext() = keysIter.hasNext()
-            override fun next() = AbstractMap.SimpleEntry(keysIter.next(), _values[index++])
-
+            override fun next() = AbstractMap.SimpleEntry(keysIter.next(), src._values[index++])
         }
     }
 
-    inner class KeySet: AbstractSet<String>(){
-        override fun iterator(): Iterator<String> = _keys.iterator()
-        override val size = _keys.size
+    class KeySet(val src: InputVector): AbstractSet<String>(){
+        override fun iterator(): Iterator<String> = src._keys.iterator()
+        override val size = src._keys.size
+
+        //performance sensitive
+        @Suppress("LoopToCallChain", "ReplaceRangeToWithUntil")
+        override fun contains(element: String): Boolean {
+            for(index in 0 .. size-1){
+                if(src._keys[index] == element) return true
+            }
+            return false
+        }
+
+        //performance sensitive
+        override fun equals(other: Any?): Boolean {
+            if(other == null) return false
+            if(other is KeySet && other.src._keys === src._keys) return true
+
+            return super.equals(other)
+        }
     }
 }
