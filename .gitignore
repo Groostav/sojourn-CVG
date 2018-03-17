@@ -3,7 +3,7 @@
 
 # IDEA folder is ignored, 
 # import from kobalt and sync with kobalt's Build.kt
-.idea/*
+#.idea/* #removed for Upsource
 
 ## File-based project format:
 *.iws
@@ -17,5 +17,6 @@ kobaltBuild/
 kobalt/Build.kt.iml
 kobalt/Code-Build.kt.iml
 .idea/kobalt.xml
+.idea/workspace.xml
 # .idea/misc.xml #removed for Upsource
 sojourn-CVG.iml
