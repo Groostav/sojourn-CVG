@@ -3,10 +3,10 @@
   <component name="KobaltSettings">
     <option name="linkedExternalProjectsSettings">
       <KobaltProjectSettings>
-        <option name="autoDownloadKobalt" value="false" />
+        <option name="autoDownloadKobalt" value="true" />
         <option name="downloadSources" value="false" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="kobaltHome" value="$USER_HOME$/.kobalt/wrapper/dist/kobalt-1.0.93" />
+        <option name="kobaltHome" value="$USER_HOME$/.kobalt/wrapper/dist/kobalt-1.0.113" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />

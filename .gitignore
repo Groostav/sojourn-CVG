@@ -17,5 +17,5 @@ kobaltBuild/
 kobalt/Build.kt.iml
 kobalt/Code-Build.kt.iml
 .idea/kobalt.xml
-.idea/misc.xml
+# .idea/misc.xml #removed for Upsource
 sojourn-CVG.iml
