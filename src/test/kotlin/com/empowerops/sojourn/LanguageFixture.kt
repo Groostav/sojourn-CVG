@@ -91,4 +91,19 @@ class LanguageFixture {
 //        ("1" to 1.0) in map
         //while there is a contains method on Map, its for keys.
     }
+
+    @Test fun things(){
+        val x = PointType.allCases
+
+        val y = 4;
+    }
+}
+
+sealed class PointType(val value: Int, val title: String) {
+    object point: PointType(1, "خطی")
+    object  candlestick: PointType(2, "شمعی")
+
+    companion object {
+        val allCases: Array<out PointType> = arrayOf(point, candlestick)
+    }
 }
