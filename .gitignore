@@ -14,9 +14,9 @@ out/
 # Kobalt
 .kobalt
 kobaltBuild/
-kobalt/Build.kt.iml
+# kobalt/Build.kt.iml
 kobalt/Code-Build.kt.iml
 .idea/kobalt.xml
 .idea/workspace.xml
 # .idea/misc.xml #removed for Upsource
-sojourn-CVG.iml
+# sojourn-CVG.iml
