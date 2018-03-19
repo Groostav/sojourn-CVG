@@ -20,6 +20,51 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="module-library" scope="TEST">
+      <library name="Kobalt: org.testng:testng:jar:6.11">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/testng/testng/6.11/testng-6.11.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library">
+      <library name="Kobalt: org.jetbrains:annotations:jar:13.0">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/annotations/13.0/annotations-13.0.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library" scope="TEST">
+      <library name="Kobalt: com.beust:jcommander:jar:1.64">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/com/beust/jcommander/1.64/jcommander-1.64.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library" scope="TEST">
+      <library name="Kobalt: org.yaml:snakeyaml:jar:1.17">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/yaml/snakeyaml/1.17/snakeyaml-1.17.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="module-library" scope="TEST">
+      <library name="Kobalt: org.jetbrains:annotations:jar:13.0">
+        <CLASSES>
+          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/annotations/13.0/annotations-13.0.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
     <orderEntry type="module-library">
       <library name="Kobalt: com.empowerops:babel:jar:0.10">
         <CLASSES>
@@ -108,15 +153,6 @@
       </library>
     </orderEntry>
     <orderEntry type="module-library" scope="TEST">
-      <library name="Kobalt: org.testng:testng:jar:6.11">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/testng/testng/6.11/testng-6.11.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library" scope="TEST">
       <library name="Kobalt: org.assertj:assertj-core:jar:3.8.0">
         <CLASSES>
           <root url="jar://$USER_HOME$/.kobalt/cache/org/assertj/assertj-core/3.8.0/assertj-core-3.8.0.jar!/" />
@@ -157,45 +193,9 @@
       </library>
     </orderEntry>
     <orderEntry type="module-library">
-      <library name="Kobalt: org.jetbrains:annotations:jar:13.0">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/annotations/13.0/annotations-13.0.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
       <library name="Kobalt: org.jetbrains.kotlin:kotlin-stdlib:jar:1.2.0">
         <CLASSES>
           <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/kotlin/kotlin-stdlib/1.2.0/kotlin-stdlib-1.2.0.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library" scope="TEST">
-      <library name="Kobalt: com.beust:jcommander:jar:1.64">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/com/beust/jcommander/1.64/jcommander-1.64.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library" scope="TEST">
-      <library name="Kobalt: org.yaml:snakeyaml:jar:1.17">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/yaml/snakeyaml/1.17/snakeyaml-1.17.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library" scope="TEST">
-      <library name="Kobalt: org.jetbrains:annotations:jar:13.0">
-        <CLASSES>
-          <root url="jar://$USER_HOME$/.kobalt/cache/org/jetbrains/annotations/13.0/annotations-13.0.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
