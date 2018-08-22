@@ -53,15 +53,15 @@ class Z3SolvingPoolFixture {
     @Test fun `logarithms`() = runTest(
             mapOf(
                     "x1" to 0.0..10.0,
-                    "x2" to 0.0..10.0,
-                    "x3" to 0.0..10.0,
-                    "x4" to 0.0..10.0,
-                    "x5" to 0.0..10.0,
-                    "x6" to 0.0..10.0
+                    "x2" to 0.0..10.0
+//                    "x3" to 0.0..10.0,
+//                    "x4" to 0.0..10.0,
+//                    "x5" to 0.0..10.0,
+//                    "x6" to 0.0..10.0
             ),
             listOf(
-//                "x2 > ln(x1)",
-                    "x4 == log(4) +/- 0.0001"
+                "x2 > ln(x1)"
+//                    "x4 == log(4) +/- 0.0001"
 //                "x6 > log(2.0, x5)"
             )
     )
@@ -143,7 +143,7 @@ class Z3SolvingPoolFixture {
         val results = pool.makeNewPointGeneration(10, immutableListOf())
 
         //assert
-        assertThat(results).hasSize(10)
-        assertThat(results).allMatch { constraints.passFor(it, tolerance = 0.000001) }
+        assertThat(results).describedAs("the number of results the SMT solver was able to generate").hasSize(10)
+        assertThat(results).describedAs("the results the SMT library found").allMatch { constraints.passFor(it, tolerance = 0.000001) }
     }
 }

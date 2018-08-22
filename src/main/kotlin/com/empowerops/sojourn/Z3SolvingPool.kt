@@ -103,14 +103,14 @@ class Z3SolvingPool private constructor(
             val transcoder = BabelZ3TranscodingWalker()
             recompiler.compile(constraint.expressionLiteral, transcoder)
 
+            transcoder.requirements.forEach { solver += it }
+
             val newSatState = solver.check()
 
             if(newSatState != Status.SATISFIABLE){
                 TODO("$constraint made constraint set $newSatState\n solver is:\n$solver")
                 //we could simply drop this and do a guess-and-check
             }
-
-            transcoder.requirements.forEach { solver += it }
         }
     }
 
@@ -353,8 +353,7 @@ class Z3SolvingPool private constructor(
 
         private fun appendInstruction(transcoded: Expr?) {
             when (transcoded) {
-                null -> {
-                }
+                null -> { }
                 is ArithExpr -> exprs.push(transcoded)
                 is BoolExpr -> requirements += transcoded
                 else -> TODO()
@@ -379,7 +378,6 @@ class Z3SolvingPool private constructor(
         }
 
     }
-
 
     fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configureReals(initializer) }
 }
