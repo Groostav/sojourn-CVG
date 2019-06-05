@@ -64,6 +64,9 @@ class ContextConfigurator(val z3: Context){
     operator fun ArithExpr.minus(right: ArithExpr): ArithExpr = z3.mkSub(this, right)
     fun pow(left: ArithExpr, right: ArithExpr): ArithExpr = z3.mkPower(left, right)
 
+    //type coercion
+    fun RealExpr.isInt2(): BoolExpr = z3.mkIsInteger(this)
+
     //expr
     infix fun ArithExpr.eq(right: ArithExpr): BoolExpr = z3.mkEq(this, right)
     infix fun BoolExpr.eq(right: BoolExpr): BoolExpr = z3.mkEq(this, right)

@@ -45,8 +45,8 @@ class Z3SolvingPoolFixture {
                     "x5" to 0.0 .. 10.0
             ),
             listOf(
-                    "x1 == x2^3 +/- 0.0001"
-                    //"x3 < x4^x5" //nope, Z3 wont reason about real-exponents.
+                    "x1 == x2^3 +/- 0.0001",
+                    "x3 < x4^x5" //nope, Z3 wont reason about real-exponents.
             )
     )
 
@@ -71,17 +71,17 @@ class Z3SolvingPoolFixture {
                     "x1" to 0.0..10.0,
                     "x2" to 0.0..10.0,
                     "x3" to 0.0..10.0,
-                    "x4" to 0.0..10.0,
-                    "x5" to 0.0..10.0,
-                    "x6" to 0.0..10.0,
-                    "x7" to 0.0..10.0
+                    "x4" to 0.0..10.0
             ),
             listOf(
-                    "x1 == x2 % 2.0 +/- 0.0001",
+                    "x1 % 3.0 >= 2",
                     "x3 == x4 % 4.5 +/- 0.0001"
-//                    "x3 == 27 % x5 +/- 0.0001"
-//                    "x5 == x6 % x7 +/- 0.0001"
             )
+    )
+
+    @Test fun `mod with symbolic divisor`() = runTest(
+            mapOf("x1" to 0.0..10.0),
+            listOf("3 > 10 % x1")
     )
 
     @Test
@@ -144,6 +144,19 @@ class Z3SolvingPoolFixture {
 
         //assert
         assertThat(results).describedAs("the number of results the SMT solver was able to generate").hasSize(10)
-        assertThat(results).describedAs("the results the SMT library found").allMatch { constraints.passFor(it, tolerance = 0.000001) }
+
+        val problems= results
+                .associate { res ->
+                    res to constraints.firstOrNull { ! it.passesFor(res, tolerance = 1E-6) }
+                }
+                .filterValues { it != null }
+                .mapKeys { (vec, cons) ->
+                    vec.filter { cons!!.containsDynamicLookup || it.key in cons!!.staticallyReferencedSymbols }
+                }
+                .map { (vec, cons) ->
+                    "$vec failed ${cons!!.expressionLiteral} (delta=${cons!!.evaluate(vec)})"
+                }
+
+        assertThat(problems).describedAs("input vector and failing constraint").isEmpty()
     }
 }

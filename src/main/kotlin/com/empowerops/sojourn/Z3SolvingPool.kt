@@ -36,8 +36,6 @@ class Z3SolvingPool private constructor(
     }
 
 //    val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
-    val mod: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("mod2", Real, Real, Real) }
-    val quot: BinaryFunction<ArithExpr, ArithExpr, ArithExpr> by lazyZ3 { BinaryFunction("quot2", Real, Real, Real) }
     val sgn: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
     val abs: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("abs", Real, Real) }
 
@@ -108,7 +106,7 @@ class Z3SolvingPool private constructor(
             val newSatState = solver.check()
 
             if(newSatState != Status.SATISFIABLE){
-                TODO("$constraint made constraint set $newSatState\n solver is:\n$solver")
+                trace { "constraint expr '${constraint.expressionLiteral}' made constraint set $newSatState\n solver is:\n$solver" }
                 //we could simply drop this and do a guess-and-check
             }
         }
@@ -131,11 +129,11 @@ class Z3SolvingPool private constructor(
         var model = solver.model
         val seed = model.buildInputVector(inputs)
 
-        if ( ! constraints.passFor(seed)) {
+//        if ( ! constraints.passFor(seed)) {
             //this is likely from a rounding error, we're gonna have to think of something smarter at some point.
 //            return immutableListOf()
-            val x = 4;
-        }
+//            val x = 4;
+//        }
         
         var results = immutableListOf(seed)
 
@@ -163,9 +161,10 @@ class Z3SolvingPool private constructor(
                 model = solver.model
                 val nextResult = model.buildInputVector(inputs)
 
-                if ( ! constraints.passFor(nextResult)) {
-                    break
-                }
+//                if ( ! constraints.passFor(nextResult)) {
+//                    TODO("again, probably rounding error. Not sure what to do.")
+//                    break
+//                }
 
                 results += nextResult
             }
@@ -192,8 +191,9 @@ class Z3SolvingPool private constructor(
                     requirements += when {
                         ctx.gt() != null -> left gt right
                         ctx.lt() != null -> left lt right
-                        ctx.gteq() != null -> left gte right
-                        ctx.lteq() != null -> left lte right
+                        //TODO: this is a hack to hedge against for rounding error
+                        ctx.gteq() != null -> left gt right
+                        ctx.lteq() != null -> left lt right
 
                         else -> TODO("unknown: ${ctx.text}")
                     }
@@ -201,10 +201,10 @@ class Z3SolvingPool private constructor(
                 ctx.eq() != null -> {
                     val (offset, right, left) = exprs.pop(3)
 
-                    val (offsetSym, rightSym, leftSym) = listOf(offset, right, left).fold(emptyList<ArithExpr>()){ accum, next ->
+                    val (offsetSym, rightSym, leftSym) = listOf(offset, right, left).map {
                         val nextSymbol = z3.mkAnonRealConst()
-                        requirements += nextSymbol eq next
-                        accum + nextSymbol
+                        requirements += nextSymbol eq it
+                        nextSymbol
                     }
 
                     requirements += (leftSym gte rightSym - offsetSym) and (leftSym lte rightSym + offsetSym)
@@ -313,34 +313,23 @@ class Z3SolvingPool private constructor(
 
                         is ModContext -> {
 
-                            //    mod = z3.Function('mod', z3.RealSort(),z3.RealSort(), z3.RealSort())
-                            //    quot = z3.Function('quot', z3.RealSort(),z3.RealSort(), z3.IntSort())
-                            //    s = z3.Solver()
-                            //
-                            //    def mk_mod_axioms(X,k):
-                            //      s.add(Implies(k != 0, 0 <= mod(X,k)),
-                            //          Implies(k > 0, mod(X,k) < k),
-                            //          Implies(k < 0, mod(X,k) < -k),
-                            //          Implies(k != 0, k*quot(X,k) + mod(X,k) == X))
-                            //
-                            //    x, y = z3.Reals('x y')
-                            //
-                            //    mk_mod_axioms(x, 3)
-                            //    mk_mod_axioms(y, 5)
+                            //https://github.com/Z3Prover/z3/issues/557
 
                             val X = left
                             val k = right
 
-                            requirements += listOf(
+                            val mod = z3.mkAnonRealConst("mod")
+                            val quot = z3.mkAnonIntConst("quot")
 
-                                    0 lt mod(X, k),
-                                    0 neq quot(X, k),
-                                    (k gt 0) implies (mod(X, k) lt k),
-                                    (k lt 0) implies (mod(X, k) lt -k),
-                                    k * quot(X, k) + mod(X, k) eq X
+                            requirements += listOf(
+                                    mod gte 0,
+                                    mod lt k,
+                                    quot neq 0,
+                                    quot neq mod,
+                                    (k * quot) + mod eq X
                             )
 
-                            mod(left, right)
+                            mod
                         }
                         else -> TODO()
                     }
@@ -382,24 +371,27 @@ class Z3SolvingPool private constructor(
     fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configureReals(initializer) }
 }
 
-fun Model.buildInputVector(inputs: List<InputVariable>): InputVector = constDecls
-        .map {
-            it.name.toString() to getConstInterp(it)
-        }
-        .filter {
-            it.first in inputs.map { it.name }
-        }
-        .map {
-            val interp = it.second
-            val decimal = when(interp){
-                is RatNum -> interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble()
-                is IntNum -> interp.bigInteger.toDouble()
-                else -> TODO()
+fun Model.buildInputVector(inputs: List<InputVariable>): InputVector {
+    val valuesByName = constDecls
+            .map {
+                it.name.toString() to getConstInterp(it)
             }
-            it.first to decimal
-        }
-        .toMap()
-        .toInputVector()
+            .filter {
+                it.first in inputs.map { it.name }
+            }
+            .map {
+                val interp = it.second
+                val decimal = when (interp) {
+                    is RatNum -> interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble()
+                    is IntNum -> interp.bigInteger.toDouble()
+                    else -> TODO("cant decode interp $interp")
+                }
+                it.first to decimal
+            }
+            .toMap()
+
+    return InputVector(inputs.associate { it.name to valuesByName.getValue(it.name) })
+}
 
 
 operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
@@ -407,4 +399,6 @@ operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
 private inline operator fun <K, V> Map<K, V>.invoke(key: K): V = getValue(key)
 
 private var tempId: Int = 0
-private fun Context.mkAnonRealConst(): RealExpr = mkRealConst("T_${tempId++}")
+
+private fun Context.mkAnonRealConst(suffix: String = ""): RealExpr = mkRealConst("T_${tempId++}${if(suffix != "") "_$suffix" else ""}")
+private fun Context.mkAnonIntConst(suffix: String = ""): IntExpr = mkIntConst("T_${tempId++}${if(suffix != "") "_$suffix" else ""}")

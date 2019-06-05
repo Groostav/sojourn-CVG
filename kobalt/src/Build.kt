@@ -20,7 +20,8 @@ val p = project {
     
     dependencies {
 
-        compile(file("deps/z3-4.5.0-win-x86/com.microsoft.z3.jar"))
+//        compile(file("deps/z3-4.5.0-win-x86/com.microsoft.z3.jar"))
+        compile(file("deps/z3-4.8.5-x86-win/bin/com.microsoft.z3.jar"))
         compile("com.empowerops:babel:${Versions.babel}")
         compile("com.empowerops:babel:jar:sources:${Versions.babel}")
 

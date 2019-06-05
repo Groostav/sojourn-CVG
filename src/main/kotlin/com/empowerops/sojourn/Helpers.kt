@@ -29,10 +29,10 @@ fun List<InputVariable>.canProduce(vector: InputVector): Boolean{
     return true
 }
 
-inline fun Iterable<BabelExpression>.passFor(inputs: InputVector, tolerance: Double = 0.0)
+fun Iterable<BabelExpression>.passFor(inputs: InputVector, tolerance: Double = 0.0)
         = all { it.evaluate(inputs).isPassedConstraint(tolerance) }
 
-inline fun BabelExpression.passesFor(inputs: InputVector, tolerance: Double = 0.0)
+fun BabelExpression.passesFor(inputs: InputVector, tolerance: Double = 0.0)
         = evaluate(inputs).isPassedConstraint(tolerance)
 
 val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow(it, 2.0) })
