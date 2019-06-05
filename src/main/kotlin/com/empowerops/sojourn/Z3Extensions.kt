@@ -106,11 +106,6 @@ class ContextConfigurator(val z3: Context){
     fun <P1, P2, R> BinaryFunction(name: String, leftParamType: Sortish<P1>, rightParamType: Sortish<P2>, returnType: Sortish<R>): BinaryFunction<P1, P2, R> where P1: Expr, P2: Expr, R: Expr
             = BinaryFunction<P1, P2, R>(z3.mkFuncDecl(name, arrayOf(leftParamType.makeSortIn(z3), rightParamType.makeSortIn(z3)), returnType.makeSortIn(z3)))
 
-//    inline fun <reified P1, reified P2, reified R> Function(name: String)
-//        where P1: Sortish, P2: Sortish, R: Sortish {
-//        TODO()
-//    }
-
     fun Implies(cause: BoolExpr, result: BoolExpr): BoolExpr = z3.mkImplies(cause, result)
 
     //misc

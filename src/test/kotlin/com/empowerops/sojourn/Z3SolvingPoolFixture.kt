@@ -39,14 +39,17 @@ class Z3SolvingPoolFixture {
     fun `power`() = runTest(
             mapOf(
                     "x1" to 0.0 .. 10.0,
-                    "x2" to 0.0 .. 10.0,
-                    "x3" to 0.0 .. 10.0,
-                    "x4" to 0.0 .. 10.0,
+                    "x2" to 0.0 .. 10.0
+            ),
+            listOf("x1 == x2^3 +/- 0.0001")
+    )
+
+    @Test fun `power with variable as exponent`() = runTest(
+            mapOf(
                     "x5" to 0.0 .. 10.0
             ),
             listOf(
-                    "x1 == x2^3 +/- 0.0001",
-                    "x3 < x4^x5" //nope, Z3 wont reason about real-exponents.
+                    "20 > 2^x5" //nope, Z3 wont reason about real-exponents.
             )
     )
 
@@ -60,7 +63,7 @@ class Z3SolvingPoolFixture {
 //                    "x6" to 0.0..10.0
             ),
             listOf(
-                "x2 > ln(x1)"
+                "2 < ln(x1)"
 //                    "x4 == log(4) +/- 0.0001"
 //                "x6 > log(2.0, x5)"
             )
@@ -108,8 +111,8 @@ class Z3SolvingPoolFixture {
                     "x4" to 0.0 .. 10.0
             ),
             listOf(
-                    "x1 > floor(x2)"
-//                    "x3 > ceil(x4) + floor(x4)"
+                    "x1 > floor(x2)",
+                    "x3 > ceil(x4) + floor(x4)"
             )
     )
     

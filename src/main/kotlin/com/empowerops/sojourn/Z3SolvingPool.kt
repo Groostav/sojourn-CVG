@@ -232,7 +232,7 @@ class Z3SolvingPool private constructor(
                     val arg = exprs.pop()
                     val operatorText = ctx[0].text
 
-                    when(operatorText) {
+                    val result: ArithExpr = when(operatorText) {
                         "sgn" -> {
                             requirements += listOf(
                                     arg eq 0 implies (sgn(arg) eq 0),
@@ -243,30 +243,48 @@ class Z3SolvingPool private constructor(
                             sgn(arg)
                         }
                         "sqrt" -> {
-                            val rooted = z3.mkAnonRealConst()
+                            val rooted = z3.mkAnonRealConst(operatorText)
                             requirements += rooted gt 0
                             requirements += arg eq rooted * rooted
                             rooted
                         }
                         "cbrt" -> {
-                            val tripleRooted = z3.mkAnonRealConst()
+                            val tripleRooted = z3.mkAnonRealConst(operatorText)
                             requirements += arg eq tripleRooted * tripleRooted * tripleRooted
                             tripleRooted
                         }
                     //do a tree-match on expr ^ (1/exprB), then do a `mkMul(*exprB.toArray())`?
                         "log" -> {
-                            val logged = z3.mkAnonRealConst()
+                            val logged = z3.mkAnonRealConst(operatorText)
                             requirements += arg eq pow(10, logged)
                             logged
                         }
                         "ln" -> {
-                            val lawned = z3.mkAnonRealConst()
+                            val lawned = z3.mkAnonRealConst(operatorText)
                             requirements += arg eq pow(E, lawned)
                             lawned
                         }
                         "floor" -> {
-//                            floor(arg)
-                            TODO()
+                            val floored = z3.mkAnonIntConst(operatorText)
+                            val rem = z3.mkAnonRealConst("floor_rem")
+                            requirements += listOf(
+                                    floored + rem eq arg,
+                                    rem gte 0,
+                                    rem lt 1
+                            )
+
+                            floored
+                        }
+                        "ceil" -> {
+                            val ceiled = z3.mkAnonIntConst(operatorText)
+                            val rem = z3.mkAnonRealConst("ceil_rem")
+                            requirements += listOf(
+                                    ceiled - rem eq arg,
+                                    rem gte 0,
+                                    rem lt 1
+                            )
+
+                            ceiled
                         }
                         "abs" -> {
                             requirements += arg lt 0 implies (abs(arg) eq -1 * arg)
@@ -275,7 +293,7 @@ class Z3SolvingPool private constructor(
                             abs(arg)
                         }
                         "sin" -> {
-                            val sinned = z3.mkAnonRealConst()
+                            val sinned = z3.mkAnonRealConst(operatorText)
 
                             //using an expansion of sin(x): http://math2.org/math/algebra/functions/sincos/expansions.htm
                             val i3Fac = z3.mkReal(1, /*3!*/ 6)
@@ -299,6 +317,8 @@ class Z3SolvingPool private constructor(
                         }
                         else -> TODO("not implemented: $operatorText")
                     }
+
+                    result
                 }
                 ctx.callsBinaryOp() -> {
                     val right = exprs.pop()
@@ -390,7 +410,7 @@ fun Model.buildInputVector(inputs: List<InputVariable>): InputVector {
             }
             .toMap()
 
-    return InputVector(inputs.associate { it.name to valuesByName.getValue(it.name) })
+    return InputVector(inputs.associate { it.name to (valuesByName[it.name] ?: Double.NaN) })
 }
 
 
@@ -400,5 +420,5 @@ private inline operator fun <K, V> Map<K, V>.invoke(key: K): V = getValue(key)
 
 private var tempId: Int = 0
 
-private fun Context.mkAnonRealConst(suffix: String = ""): RealExpr = mkRealConst("T_${tempId++}${if(suffix != "") "_$suffix" else ""}")
-private fun Context.mkAnonIntConst(suffix: String = ""): IntExpr = mkIntConst("T_${tempId++}${if(suffix != "") "_$suffix" else ""}")
+private fun Context.mkAnonRealConst(prefix: String = ""): RealExpr = mkRealConst("${if(prefix != "") "$prefix-" else ""}temp-${tempId++}")
+private fun Context.mkAnonIntConst(prefix: String = ""): IntExpr = mkIntConst("${if(prefix != "") "$prefix-" else ""}temp-${tempId++}")
