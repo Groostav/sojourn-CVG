@@ -28,11 +28,17 @@ class ContextConfigurator(val z3: Context){
     infix fun Int.lt(right: ArithExpr): BoolExpr = z3.mkLt(this.zr, right)
     infix fun Int.lte(right: ArithExpr): BoolExpr = z3.mkLe(this.zr, right)
 
-    operator fun Int.times(right: ArithExpr): ArithExpr = z3.mkMul(this.zr, right)
-    operator fun Int.div(right: ArithExpr): ArithExpr = z3.mkDiv(this.zr, right)
-    operator fun Int.plus(right: ArithExpr): ArithExpr = z3.mkAdd(this.zr, right)
-    operator fun Int.minus(right: ArithExpr): ArithExpr = z3.mkSub(this.zr, right)
-    fun pow(left: Int, right: ArithExpr): ArithExpr = z3.mkPower(left.zr, right)
+//    operator fun Int.times(right: ArithExpr): ArithExpr = z3.mkMul(this.zr, right)
+//    operator fun Int.div(right: ArithExpr): ArithExpr = z3.mkDiv(this.zr, right)
+//    operator fun Int.plus(right: ArithExpr): ArithExpr = z3.mkAdd(this.zr, right)
+//    operator fun Int.minus(right: ArithExpr): ArithExpr = z3.mkSub(this.zr, right)
+//    fun pow(left: Int, right: ArithExpr): ArithExpr = z3.mkPower(left.zr, right)
+
+    operator fun Number.times(right: RealExpr): RealExpr = z3.mkMul(this.zr, right) as RealExpr
+    operator fun Number.div(right: RealExpr): RealExpr = z3.mkDiv(this.zr, right) as RealExpr
+    operator fun Number.plus(right: RealExpr): RealExpr = z3.mkAdd(this.zr, right) as RealExpr
+    operator fun Number.minus(right: RealExpr): RealExpr = z3.mkSub(this.zr, right) as RealExpr
+    fun pow(left: Number, right: RealExpr): RealExpr = z3.mkPower(left.zr, right) as RealExpr
     //note kotlin will use left-associativity here.
 
     infix fun ArithExpr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
@@ -43,8 +49,8 @@ class ContextConfigurator(val z3: Context){
     //consts
     //TODO pending https://github.com/Z3Prover/z3/issues/1327
     // current strategy is just to use a high resolution constant a le floating point.
-    val E: ArithExpr = BigDecimal("2.7182818284590452353").zr
-    val PI: ArithExpr = BigDecimal("3.1415926535897932384").zr
+    val E: RealExpr = BigDecimal("2.7182818284590452353").zr
+    val PI: RealExpr = BigDecimal("3.1415926535897932384").zr
 
     //arith-expr
     infix fun ArithExpr.gt(right: ArithExpr): BoolExpr = z3.mkGt(this, right)
@@ -83,9 +89,7 @@ class ContextConfigurator(val z3: Context){
 
     //vals
     val Int.z get() = z3.mkInt(this)
-    val Int.zr get() = z3.mkReal(this)
-    val Double.zr get() = z3.mkReal(this.toString())
-    val BigDecimal.zr get() = z3.mkReal(this.toString())
+    val Number.zr get() = z3.mkReal(this.toString())
 
     val realSort: Sort = z3.realSort
 
@@ -119,18 +123,18 @@ class ContextConfigurator(val z3: Context){
 inline operator fun <reified T: Expr> FuncDecl.invoke(arg1: Expr, arg2: Expr): T = this.apply(arg1, arg2) as T
 inline operator fun <reified T: Expr> FuncDecl.invoke(arg1: Expr): T = this.apply(arg1) as T
 
-class UnaryFunction<P1, R>(val decl: FuncDecl) where P1: Expr, R: Expr {
+class UnaryFunction<in P1, out R>(val decl: FuncDecl) where P1: Expr, R: Expr {
     operator fun invoke(param: P1): R = decl.apply(param) as R
 }
-class BinaryFunction<P1, P2, R>(val decl: FuncDecl) where P1: Expr, P2: Expr, R: Expr {
+class BinaryFunction<in P1, in P2, out R>(val decl: FuncDecl) where P1: Expr, P2: Expr, R: Expr {
     operator fun invoke(leftParam: P1, rightParam: P2): R = decl.apply(leftParam, rightParam) as R
 }
 
 interface Sortish<out T: Expr> { fun makeSortIn(z3: Context): Sort }
 
-object Real: Sortish<ArithExpr> {
+object Real: Sortish<RealExpr> {
     override fun makeSortIn(z3: Context): Sort = z3.realSort
 }
-object Integer: Sortish<ArithExpr> {
+object Integer: Sortish<IntExpr> {
     override fun makeSortIn(z3: Context): Sort = z3.intSort
 }

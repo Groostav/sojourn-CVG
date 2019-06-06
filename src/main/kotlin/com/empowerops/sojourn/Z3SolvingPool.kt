@@ -7,6 +7,7 @@ import kotlinx.collections.immutable.*
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.TerminalNode
+import java.lang.NullPointerException
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.*
@@ -36,15 +37,31 @@ class Z3SolvingPool private constructor(
     }
 
 //    val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
-    val sgn: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
-    val abs: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 { UnaryFunction("abs", Real, Real) }
+    val sgn: UnaryFunction<RealExpr, RealExpr> by lazyZ3 { UnaryFunction("sgn", Real, Real) }
+    val abs: UnaryFunction<RealExpr, RealExpr> by lazyZ3 { UnaryFunction("abs", Real, Real) }
 
-    val vars: UnaryFunction<ArithExpr, ArithExpr> by lazyZ3 {
+    val mod: BinaryFunction<RealExpr, RealExpr, RealExpr> by lazyZ3 { BinaryFunction("mod", Real, Real, Real) }
+    val quot: BinaryFunction<RealExpr, RealExpr, IntExpr> by lazyZ3 { BinaryFunction("quot", Real, Real, Integer) }
+
+    fun mkModAxioms(X: RealExpr, k: RealExpr) = z3 {
+        solver.add(
+                (k neq 0) implies (0 lte mod(X, k)),
+                (k gt 0) implies (mod(X, k) lt k),
+                (k lt 0) implies (mod(X, k) lt -k),
+                (k * quot(X, k) + mod(X, k)) eq X
+        )
+    }
+
+    val vars: UnaryFunction<RealExpr, RealExpr> by lazyZ3 {
         UnaryFunction("var", Real, Real).also {
             for((index, input) in inputs.withIndex()){
-                solver += it((index + 1).zr) eq inputExprs[input.name]!!
+                solver += it((index + 1).zr) eq inputExprs.getValue(input.name)
             }
         }
+    }
+
+    override fun toString(): String {
+        return "SOLVER:\n$solver\nMODEL:${try { solver.model } catch(ex: Z3Exception) { null }}"
     }
 
     companion object: ConstraintSolvingPoolFactory {
@@ -220,7 +237,7 @@ class Z3SolvingPool private constructor(
                 ctx.literal() != null || ctx.variable() != null -> null
 
                 ctx.callsDynamicVariableAccess() -> {
-                    val index = exprs.pop()
+                    val index = exprs.pop() as RealExpr
                     vars(index)
                 }
 
@@ -229,7 +246,7 @@ class Z3SolvingPool private constructor(
                 (ctx[0] as? TerminalNode)?.symbol?.type == BabelLexer.OPEN_PAREN -> null
 
                 ctx.unaryFunction() != null -> {
-                    val arg = exprs.pop()
+                    val arg = exprs.pop() as RealExpr
                     val operatorText = ctx[0].text
 
                     val result: ArithExpr = when(operatorText) {
@@ -301,17 +318,18 @@ class Z3SolvingPool private constructor(
                             val i7Fac = z3.mkReal(1, 5040)
                             val i9Fac = z3.mkReal(1, 362880)
                             val i11Fac = z3.mkReal(1, 39916800)
+
                             //this only gets us a handful of sig-figs. 
 
                             requirements += sinned eq (
-                                            arg
-                                            - (i3Fac * pow(arg, 3))
-                                            + (i5Fac * pow(arg, 5))
-                                            - (i7Fac * pow(arg, 7))
-                                            + (i9Fac * pow(arg, 9))
-                                            - (i11Fac * pow(arg, 11))
+                                    arg
+                                    - (i3Fac * pow(arg, 3))
+                                    + (i5Fac * pow(arg, 5))
+                                    - (i7Fac * pow(arg, 7))
+                                    + (i9Fac * pow(arg, 9))
+                                    - (i11Fac * pow(arg, 11))
 //                                            + 13
-                                    ) 
+                            )
 
                             sinned
                         }
@@ -321,8 +339,8 @@ class Z3SolvingPool private constructor(
                     result
                 }
                 ctx.callsBinaryOp() -> {
-                    val right = exprs.pop()
-                    val left = exprs.pop()
+                    val right = exprs.pop() as RealExpr
+                    val left = exprs.pop() as RealExpr
 
                     when(ctx[1]) {
                         is PlusContext -> left + right
@@ -330,26 +348,9 @@ class Z3SolvingPool private constructor(
                         is MultContext -> left * right
                         is DivContext -> left / right
                         is RaiseContext -> pow(left, right)
-
                         is ModContext -> {
-
-                            //https://github.com/Z3Prover/z3/issues/557
-
-                            val X = left
-                            val k = right
-
-                            val mod = z3.mkAnonRealConst("mod")
-                            val quot = z3.mkAnonIntConst("quot")
-
-                            requirements += listOf(
-                                    mod gte 0,
-                                    mod lt k,
-                                    quot neq 0,
-                                    quot neq mod,
-                                    (k * quot) + mod eq X
-                            )
-
-                            mod
+                            mkModAxioms(left, right)
+                            mod(left, right)
                         }
                         else -> TODO()
                     }
@@ -358,6 +359,30 @@ class Z3SolvingPool private constructor(
             }
 
             appendInstruction(transcoded)
+        }
+
+        private fun ContextConfigurator.letMod(right: ArithExpr, left: ArithExpr, prefix: String = ""): RealExpr {
+
+            //https://github.com/Z3Prover/z3/issues/557
+
+            val mod = z3.mkAnonRealConst("${prefix}mod")
+            val quot = z3.mkAnonIntConst("${prefix}quot")
+
+            val X = left
+            val k = right
+
+            requirements += listOf(
+                    (k neq 0) implies (0 lte mod),
+                    (k gt 0) implies (mod lt k),
+                    (k lt 0) implies (mod lt -k),
+                    (k neq 0) implies ((k * quot + mod) eq X)
+//                    mod gte 0,
+//                    mod lt k,
+//                    quot neq 0,
+//                    quot neq mod,
+//                    (k * quot) + mod eq X
+            )
+            return mod
         }
 
         private fun appendInstruction(transcoded: Expr?) {

@@ -72,13 +72,13 @@ class Z3SolvingPoolFixture {
     @Test fun `mod`() = runTest(
             mapOf(
                     "x1" to 0.0..10.0,
-                    "x2" to 0.0..10.0,
-                    "x3" to 0.0..10.0,
-                    "x4" to 0.0..10.0
+                    "x2" to 0.0..10.0
+//                    "x3" to 0.0..10.0,
+//                    "x4" to 0.0..10.0
             ),
             listOf(
-                    "x1 % 3.0 >= 2",
-                    "x3 == x4 % 4.5 +/- 0.0001"
+                    "x1 % 3.0 >= 2"
+//                    "x3 == x4 % 4.5 +/- 0.0001"
             )
     )
 
@@ -132,6 +132,16 @@ class Z3SolvingPoolFixture {
             listOf("x1 == x2 +/- 0.1")
     )
 
+    @Test fun `sin`() = runTest(
+            mapOf("x1" to -3.14 .. +3.14, "y" to -1.0 .. +1.0),
+            listOf("y - sin(x1) <= 0")
+    )
+
+    @Test fun `sin of value several wavelenghts away`() = runTest(
+            mapOf("theta" to Math.PI*4 .. Math.PI*6, "y" to -1.0..+1.0),
+            listOf("y > sin(theta)")
+    )
+
     private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {
         val inputs = inputs2.map { (key, value) -> InputVariable(key, value.start, value.endInclusive) }
 
@@ -150,14 +160,15 @@ class Z3SolvingPoolFixture {
 
         val problems= results
                 .associate { res ->
-                    res to constraints.firstOrNull { ! it.passesFor(res, tolerance = 1E-6) }
+                    res to constraints.firstOrNull { ! it.passesFor(res, tolerance = 1E-10) }
                 }
                 .filterValues { it != null }
+                .also { if (it.values.any()) trace { pool.toString() } }
                 .mapKeys { (vec, cons) ->
                     vec.filter { cons!!.containsDynamicLookup || it.key in cons!!.staticallyReferencedSymbols }
                 }
                 .map { (vec, cons) ->
-                    "$vec failed ${cons!!.expressionLiteral} (delta=${cons!!.evaluate(vec)})"
+                    "$vec failed '${cons!!.expressionLiteral}' (delta=${cons!!.evaluate(vec)})"
                 }
 
         assertThat(problems).describedAs("input vector and failing constraint").isEmpty()
