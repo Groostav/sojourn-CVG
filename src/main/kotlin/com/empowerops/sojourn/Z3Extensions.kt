@@ -28,17 +28,11 @@ class ContextConfigurator(val z3: Context){
     infix fun Int.lt(right: ArithExpr): BoolExpr = z3.mkLt(this.zr, right)
     infix fun Int.lte(right: ArithExpr): BoolExpr = z3.mkLe(this.zr, right)
 
-//    operator fun Int.times(right: ArithExpr): ArithExpr = z3.mkMul(this.zr, right)
-//    operator fun Int.div(right: ArithExpr): ArithExpr = z3.mkDiv(this.zr, right)
-//    operator fun Int.plus(right: ArithExpr): ArithExpr = z3.mkAdd(this.zr, right)
-//    operator fun Int.minus(right: ArithExpr): ArithExpr = z3.mkSub(this.zr, right)
-//    fun pow(left: Int, right: ArithExpr): ArithExpr = z3.mkPower(left.zr, right)
-
-    operator fun Number.times(right: RealExpr): RealExpr = z3.mkMul(this.zr, right) as RealExpr
-    operator fun Number.div(right: RealExpr): RealExpr = z3.mkDiv(this.zr, right) as RealExpr
-    operator fun Number.plus(right: RealExpr): RealExpr = z3.mkAdd(this.zr, right) as RealExpr
-    operator fun Number.minus(right: RealExpr): RealExpr = z3.mkSub(this.zr, right) as RealExpr
-    fun pow(left: Number, right: RealExpr): RealExpr = z3.mkPower(left.zr, right) as RealExpr
+    operator fun Int.times(right: ArithExpr): ArithExpr = z3.mkMul(this.zr, right)
+    operator fun Int.div(right: ArithExpr): ArithExpr = z3.mkDiv(this.zr, right)
+    operator fun Int.plus(right: ArithExpr): ArithExpr = z3.mkAdd(this.zr, right)
+    operator fun Int.minus(right: ArithExpr): ArithExpr = z3.mkSub(this.zr, right)
+    fun pow(left: Int, right: ArithExpr): ArithExpr = z3.mkPower(left.zr, right)
     //note kotlin will use left-associativity here.
 
     infix fun ArithExpr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
@@ -89,7 +83,9 @@ class ContextConfigurator(val z3: Context){
 
     //vals
     val Int.z get() = z3.mkInt(this)
-    val Number.zr get() = z3.mkReal(this.toString())
+    val Int.zr get() = z3.mkReal(this)
+    val Double.zr get() = z3.mkReal(this.toString())
+    val BigDecimal.zr get() = z3.mkReal(this.toString())
 
     val realSort: Sort = z3.realSort
 
@@ -132,6 +128,9 @@ class BinaryFunction<in P1, in P2, out R>(val decl: FuncDecl) where P1: Expr, P2
 
 interface Sortish<out T: Expr> { fun makeSortIn(z3: Context): Sort }
 
+object Arith: Sortish<ArithExpr> {
+    override fun makeSortIn(z3: Context): Sort = z3.realSort
+}
 object Real: Sortish<RealExpr> {
     override fun makeSortIn(z3: Context): Sort = z3.realSort
 }
