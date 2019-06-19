@@ -23,6 +23,7 @@ dependencies {
     implementation fileTree(dir: 'deps/z3-4.8.5-x86-win/bin', include: ['*.jar', '*.dll'])
 
     testImplementation group: 'org.testng', name: 'testng', version: '6.14.3'
+    testImplementation "org.assertj:assertj-core:3.8.0"
 }
 
 
@@ -31,4 +32,14 @@ compileKotlin {
 }
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+
+test {
+    useTestNG()
+
+    //this is not needed as the static class loader for the Z3SolvingPool hacks it in based on the classpath
+    //and, infact, doing this actually overwrites the env's existing value which includes PATH entries
+    // so this breaks things.
+    // jvmArgs '-Djava.library.path=deps/z3-4.8.5-x86-win/bin'
 }

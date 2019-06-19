@@ -95,6 +95,8 @@ class InputVector : Map<String, Double> {
 
     override fun toString(): String = "<${entries.joinToString { (k, v) -> "$k=$v" }}>"
 
+
+
     infix fun vecPlus(right: InputVector): InputVector {
         require(keys == right.keys)
 
@@ -140,6 +142,25 @@ class InputVector : Map<String, Double> {
         return result
     }
     inline operator fun div(scalar: Double) = times(1.0/scalar)
+
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as InputVector
+
+        if (!_keys.contentEquals(other._keys)) return false
+        if (!_values.contentEquals(other._values)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = _keys.contentHashCode()
+        result = 31 * result + _values.contentHashCode()
+        return result
+    }
 
     class EntrySet(val src: InputVector): AbstractSet<Map.Entry<String, Double>>() {
         override val size = src.size

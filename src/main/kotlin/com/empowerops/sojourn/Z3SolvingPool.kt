@@ -376,8 +376,8 @@ class Z3SolvingPool private constructor(
                     result
                 }
                 ctx.callsBinaryOp() -> {
-                    val right = exprs.pop() as RealExpr
-                    val left = exprs.pop() as RealExpr
+                    val right = exprs.pop()
+                    val left = exprs.pop()
 
                     when(ctx[1]) {
                         is PlusContext -> left + right

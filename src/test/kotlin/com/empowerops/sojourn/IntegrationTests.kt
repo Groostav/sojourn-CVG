@@ -1,7 +1,7 @@
 package com.empowerops.sojourn
 
 import kotlinx.collections.immutable.immutableListOf
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
 import kotlin.system.measureTimeMillis

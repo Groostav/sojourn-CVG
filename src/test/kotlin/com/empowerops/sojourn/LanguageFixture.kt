@@ -68,7 +68,7 @@ class LanguageFixture {
 
         val result = a + b gt c
 
-        assertThat(result.str).isEqualTo("((A plssus B) gt C)")
+        assertThat(result.str).isEqualTo("((A plus B) gt C)")
     }
 
     //operator fun MyObj.compareTo(right: MyObj): MyObj //no good, compareTo must return an Int, which is too bad.
