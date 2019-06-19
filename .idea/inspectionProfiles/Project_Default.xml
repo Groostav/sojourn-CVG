@@ -1,8 +1,6 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
-    <inspection_tool class="PackageName" enabled="true" level="WEAK WARNING" enabled_by_default="true">
-      <option name="namePattern" value="[a-z][A-Za-z\d]*(\.[a-z][A-Za-z\d_]*)*" />
-    </inspection_tool>
+    <inspection_tool class="KotlinDoubleNegation" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
   </profile>
 </component>

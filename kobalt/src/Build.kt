@@ -4,12 +4,9 @@ import com.beust.kobalt.plugin.application.*
 import com.beust.kobalt.plugin.kotlin.*
 
 object Versions {
-    val kotlin = "1.1.50"
+    val kotlin = "1.3.31"
     val babel = "0.10"
-}
-
-val bs = buildScript {
-    repos("http://dl.bintray.com/kotlin/kotlinx")
+    val coroutines = "1.2.1"
 }
 
 val p = project {
@@ -31,7 +28,7 @@ val p = project {
                 "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
         )
 
-        compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:0.20")
+        compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:${Versions.coroutines}")
         compile("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1")
         compile("org.antlr:antlr4-runtime:4.7")
         compile("javax.inject:javax.inject:1")
@@ -41,8 +38,7 @@ val p = project {
     dependenciesTest {
         compile("org.testng:testng:6.11")
         compile("org.assertj:assertj-core:3.8.0")
-        compile("org.jetbrains.kotlin:kotlin-stdlib:jar:sources:${Versions.kotlin}")
-        compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:jar:sources:0.20")
+        compile("org.jetbrains.kotlinx:kotlinx-coroutines-core:jar:sources:${Versions.coroutines}")
     }
 
     assemble {
