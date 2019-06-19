@@ -2,6 +2,7 @@ package com.empowerops.sojourn
 
 import kotlinx.collections.immutable.*
 import org.assertj.core.api.Assertions.*
+import org.assertj.core.api.Condition
 import org.testng.Assert.assertThrows
 import org.testng.annotations.Test
 import java.util.*
@@ -40,7 +41,7 @@ class Benchmarks {
     @Test fun `z3 on P118`() = runTest(Z3SolvingPool, P118.copy(targetSampleSize = 100))
 
     @Test fun `sampling on tough-single-var`() = runTest(RandomSamplingPool1234, ToughSingleVar)
-    @Test fun `z3 tough-single-var`() = runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100))
+    @Test fun `z3 tough-single-var`(): Unit = TODO("im getting hanging behaviour in sine").also { runTest(Z3SolvingPool, ToughSingleVar.copy(targetSampleSize = 100)) }
     
     @Test(enabled = false) fun generateReportData() {
 
@@ -126,7 +127,14 @@ class Benchmarks {
 //        }
 
         //assert 2 -- red/green assertions
-        assertThat(results).allMatch { point -> constraints.passFor(point) }
+        for(result in results){
+            for(constraint in constraints){
+                assertThat(constraint.passesFor(result))
+                    .describedAs("the result $result passes for ${constraint.expressionLiteral}")
+                    .isTrue()
+            }
+        }
+//        assertThat(results).allMatch { point -> constraints.passFor(point, 0.000000001) }
 //        assertThat((actualCentroid vecMinus centroid).distance)
 //                .describedAs("distance between result centroid $actualCentroid\nand the expected centroid $centroid")
 //                .isLessThan(centroid.distance * fudgeFactor)

@@ -341,23 +341,23 @@ class Z3SolvingPool private constructor(
 //                                    modded gt -PI
 //                            )
 
-//                            requirements += sinned eq (
-//                                    modded
-//                                    - (i3Fac * modded * modded * modded)
-//                                    + (i5Fac * pow(modded, 5))
-//                                    - (i7Fac * pow(modded, 7))
-//                                    + (i9Fac * pow(modded, 9))
-//                                    - (i11Fac * pow(modded, 11))
-//                            )
-
-                            requirements += ((modded lte PI) and (modded gte -PI)) implies (sinned eq (
+                            requirements += sinned eq (
                                     modded
-                                    - (i3Fac * pow(modded, 3))
+                                    - (i3Fac * modded * modded * modded)
                                     + (i5Fac * pow(modded, 5))
                                     - (i7Fac * pow(modded, 7))
                                     + (i9Fac * pow(modded, 9))
                                     - (i11Fac * pow(modded, 11))
-                            ))
+                            )
+
+//                            requirements += ((modded lte PI) and (modded gte -PI)) implies (sinned eq (
+//                                    modded
+//                                    - (i3Fac * pow(modded, 3))
+//                                    + (i5Fac * pow(modded, 5))
+//                                    - (i7Fac * pow(modded, 7))
+//                                    + (i9Fac * pow(modded, 9))
+//                                    - (i11Fac * pow(modded, 11))
+//                            ))
 //                            requirements += (modded gt PI) implies (sinned eq (
 //                                    (modded - 2*PI)
 //                                    - (i3Fac * pow(modded - 2*PI, 3))
@@ -367,6 +367,9 @@ class Z3SolvingPool private constructor(
 //                                    - (i11Fac * pow(modded - 2*PI, 11))
 //                            ))
                             //I cant seem to get mod working
+//                            requirements += sinned lte 1
+//                            requirements += sinned gte -1
+
 
                             sinned
                         }
