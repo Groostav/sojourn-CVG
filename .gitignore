@@ -20,3 +20,11 @@ kobalt/Code-Build.kt.iml
 .idea/workspace.xml
 # .idea/misc.xml #removed for Upsource
 # sojourn-CVG.iml
+
+
+
+# Gradle
+.gradle/
+
+# misc
+/.idea/misc.xml
