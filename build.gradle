@@ -7,11 +7,24 @@ version '0.2'
 
 repositories {
     mavenCentral()
+    jcenter()
+//    bintray()
+    maven { url 'https://dl.bintray.com/kotlin/kotlinx/' }
 }
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation "com.empowerops:babel:0.10"
+    implementation "org.antlr:antlr4-runtime:4.7"
+    implementation "org.jetbrains.kotlinx:kotlinx-collections-immutable:0.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.2.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.2.1"
+
+    implementation fileTree(dir: 'deps/z3-4.8.5-x86-win/bin', include: ['*.jar', '*.dll'])
+
+    testImplementation group: 'org.testng', name: 'testng', version: '6.14.3'
 }
+
 
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"

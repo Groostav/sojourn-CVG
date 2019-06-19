@@ -5,8 +5,9 @@ import com.empowerops.babel.BabelExpression
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.immutableListOf
 import kotlinx.collections.immutable.*
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
 import java.util.*
 
 enum class Satisfiability { SATISFIABLE, UNSATISFIABLE, UNKNOWN }
@@ -56,13 +57,13 @@ suspend fun makeSamples(
             var nextRoundSmtTarget = (nextRoundTarget*SMT_HANDICAP).toIntAtLeast1()
 
             while(qualityResults.size < targetPointCount) {
-                val samplingResultsAsync = async(CommonPool) {
+                val samplingResultsAsync = GlobalScope.async(Dispatchers.Default) {
                     measureTime { sampler.makeNewPointGeneration(nextRoundSamplingTarget, pool + seeds) }
                 }
-                val improoverResultsAsync = async(CommonPool) {
+                val improoverResultsAsync = GlobalScope.async(Dispatchers.Default) {
                     measureTime { improover.makeNewPointGeneration(nextRoundImprooverTarget, pool + seeds) }
                 }
-                val smtResultsAsync = async(CommonPool){
+                val smtResultsAsync = GlobalScope.async(Dispatchers.Default){
                     measureTime { smt.makeNewPointGeneration(nextRoundSmtTarget, pool + seeds) }
                 }
 
