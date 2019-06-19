@@ -134,12 +134,16 @@ class Z3SolvingPoolFixture {
 
     @Test fun `sin`() = runTest(
             mapOf("x1" to -3.14 .. +3.14, "y" to 0.9 .. 1.0),
-            listOf("y - sin(x1) <= 0")
+            listOf("sin(x1) <= 0")
     )
 
     @Test fun `sin of value offset by multiples of pi`() = runTest(
-            mapOf("theta" to Math.PI .. Math.PI*3, "y" to -1.0..+1.0),
-            listOf("y > sin(theta)")
+            mapOf("theta" to Math.PI .. Math.PI*3, "y" to -1.0..+1.0
+//                    "big_theta" to Math.PI*3 .. Math.PI*5),
+            ),
+            listOf("y > sin(theta)"
+//            "y > sin(big_theta)"
+            )
     )
 
     private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {

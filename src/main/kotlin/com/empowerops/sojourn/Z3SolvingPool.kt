@@ -319,7 +319,7 @@ class Z3SolvingPool private constructor(
                             val i9Fac = z3.mkReal(1, 362880)
                             val i11Fac = z3.mkReal(1, 39916800)
 
-                            fail; //blargwargl, I cannot for the life of me get this
+                            //this is really hard. I cant get it working with mod.
                             // 1. to use a sin function, though this might have been a name collision
                             // 2. to use and "see-through" a 'mod(arg, 2PI)' call. It simply goes UNKNOWN with no solution. bummer.
 
@@ -358,14 +358,14 @@ class Z3SolvingPool private constructor(
                                     + (i9Fac * pow(modded, 9))
                                     - (i11Fac * pow(modded, 11))
                             ))
-                            requirements += (modded gt PI) implies (sinned eq (
-                                    (modded - 2*PI)
-                                    - (i3Fac * pow(modded - 2*PI, 3))
-                                    + (i5Fac * pow(modded - 2*PI, 5))
-                                    - (i7Fac * pow(modded - 2*PI, 7))
-                                    + (i9Fac * pow(modded - 2*PI, 9))
-                                    - (i11Fac * pow(modded - 2*PI, 11))
-                            ))
+//                            requirements += (modded gt PI) implies (sinned eq (
+//                                    (modded - 2*PI)
+//                                    - (i3Fac * pow(modded - 2*PI, 3))
+//                                    + (i5Fac * pow(modded - 2*PI, 5))
+//                                    - (i7Fac * pow(modded - 2*PI, 7))
+//                                    + (i9Fac * pow(modded - 2*PI, 9))
+//                                    - (i11Fac * pow(modded - 2*PI, 11))
+//                            ))
                             //I cant seem to get mod working
 
                             sinned
