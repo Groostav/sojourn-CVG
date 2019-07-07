@@ -1,6 +1,7 @@
 # IntelliJ
 # each user should import the gradle project on their own
-.idea/
+.idea/*
+*.iml
 
 # Gradle
 .gradle/
