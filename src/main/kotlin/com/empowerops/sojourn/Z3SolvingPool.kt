@@ -67,15 +67,6 @@ class Z3SolvingPool private constructor(
     companion object: ConstraintSolvingPoolFactory {
 
         init {
-            // set sys_paths to null; this will force a re-parse of the java.library.path by System.loadLibrary,
-            // thus pushing our changes.
-            // note we might be able to do this with Unsafe:
-            // https://javax0.wordpress.com/2017/05/03/hacking-the-integercache-in-java-9/
-            ClassLoader::class.java.getDeclaredField("sys_paths").apply {
-                isAccessible = true
-                set(null, null)
-            }
-
             val oldPathValues = (System.getProperty("java.library.path") ?: "")
                     .split(';')
                     .toSet()
@@ -94,6 +85,15 @@ class Z3SolvingPool private constructor(
                     .joinToString(";")
 
             System.setProperty("java.library.path", newLibraryPath)
+
+            // set sys_paths to null; this will force a re-parse of the java.library.path by System.loadLibrary,
+            // thus pushing our changes.
+            // note we might be able to do this with Unsafe:
+            // https://javax0.wordpress.com/2017/05/03/hacking-the-integercache-in-java-9/
+            ClassLoader::class.java.getDeclaredField("sys_paths").apply {
+                isAccessible = true
+                set(null, null)
+            }
 
             listOf("msvcr110", "vcomp110", "libz3", "libz3java")
                     .map { System.loadLibrary(it) }

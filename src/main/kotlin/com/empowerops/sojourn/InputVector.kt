@@ -51,12 +51,12 @@ class InputVector : Map<String, Double> {
     //TODO: this should be backed by some kind of LinkedNavigableSet,
     // it would mean one less object allocation, and we'd get the (expected) keys.contains() behaviour to be fast.
     // in the mean time, the jvm's behaviour of
-    val _keys: Array<String>
-    val _values: DoubleArray
+    private val _keys: Array<String>
+    private val _values: DoubleArray
 
-    var __keys: Set<String>? = null
-    var __values: List<Double>? = null
-    var _entries: EntrySet? = null
+    private var __keys: Set<String>? = null
+    private var __values: List<Double>? = null
+    private var _entries: EntrySet? = null
 
     private constructor(keys: Array<String>){
         _keys = keys
