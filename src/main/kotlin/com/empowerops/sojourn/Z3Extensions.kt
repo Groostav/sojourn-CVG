@@ -1,7 +1,6 @@
 package com.empowerops.sojourn
 
 import com.microsoft.z3.*
-import javafx.beans.binding.BooleanExpression
 import java.math.BigDecimal
 
 inline fun <R> Context.configureReals(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()

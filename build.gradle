@@ -48,7 +48,6 @@ test {
     // jvmArgs '-Djava.library.path=deps/z3-4.8.5-x86-win/bin'
 }
 
-//alright, so this isnt working for me. Will investigate later.
 launch4j {
     mainClassName = 'com.empowerops.sojourn.FrontendKt'
     headerType = 'console'

@@ -5,7 +5,8 @@ import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
 
 suspend fun main(args: Array<String>){
-    println("hello launch4j!")
+
+    println("home is ${System.getProperty("java.home")}")
 
     val expr = args.joinToString(" ")
 

@@ -90,10 +90,18 @@ class Z3SolvingPool private constructor(
             // thus pushing our changes.
             // note we might be able to do this with Unsafe:
             // https://javax0.wordpress.com/2017/05/03/hacking-the-integercache-in-java-9/
-            ClassLoader::class.java.getDeclaredField("sys_paths").apply {
-                isAccessible = true
-                set(null, null)
-            }
+
+            val usf = Class.forName("sun.misc.Unsafe")
+            val unsafeField = usf.getDeclaredField("theUnsafe")
+            unsafeField.isAccessible = true
+            val unsafe = unsafeField.get(null) as sun.misc.Unsafe
+            val clazz = ClassLoader::class.java
+
+            val field = clazz.getField("sys_paths")
+
+            fail; //god damn, i donno man, JNI sucks.
+
+            unsafe.getAndSetObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field), null)
 
             try {
                 listOf("msvcr110", "vcomp110", "libz3", "libz3java")
