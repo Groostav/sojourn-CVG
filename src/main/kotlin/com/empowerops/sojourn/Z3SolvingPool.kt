@@ -7,9 +7,6 @@ import kotlinx.collections.immutable.*
 import org.antlr.v4.runtime.RuleContext
 import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.TerminalNode
-import java.lang.NullPointerException
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.util.*
 import java.util.stream.Stream
 
@@ -66,50 +63,52 @@ class Z3SolvingPool private constructor(
 
     companion object: ConstraintSolvingPoolFactory {
 
+        val arch = System.getProperty("os.arch")
+        val Z3DepDir = "z3-4.8.5-merged/$arch-win"
+
+        val NoLibraryPathModifications: Boolean = java.lang.Boolean.getBoolean("${ConstraintSolvingPoolFactory::class.qualifiedName}.NoLibraryPathModifications")
+
         init {
-            val oldPathValues = (System.getProperty("java.library.path") ?: "")
-                    .split(';')
-                    .toSet()
+            val props = System.getProperties() as MutableMap<String, String>
+            val oldValue = props["java.library.path"] ?: ""
 
-            val newLibraryPath = System.getProperty("java.class.path").split(";")
-                    .map { Paths.get(it).parent }
-                    .asSequence()
-                    .distinct()
-                    .flatMap { Files.walk(it).asSequence() }
-                    .filter { it.toString().let { it.endsWith(".dll") || it.endsWith(".so") || it.endsWith(".lib") }}
-                    .map { it.parent }
-                    .toSet()
-                    .let { oldPathValues + (it - oldPathValues) }
-                    .map { it.toString() }
-                    .filter { it.isNotBlank() }
-                    .joinToString(";")
+            if( ! NoLibraryPathModifications){
+                // so, if Z3 isnt in the path,
+                // and nobody has yet called loadLibrary, then we can hack it in and get Z3 working with no extra config.
+                if("deps/$Z3DepDir/bin" !in oldValue){
+                    props["java.library.path"] = oldValue + ";deps/$Z3DepDir/bin"
+                }
 
-            System.setProperty("java.library.path", newLibraryPath)
+                //... and if we're on java.version 1.X (X is 6, 7, or 8, for 9+ they changed the format)
+                // then we can hack this thing in via reflection, and no -Djava.library.path games need to be played by our entry-point.
+                if((props["java.version"]?: "").startsWith("1.")) try {
+                    val field = ClassLoader::class.java.getDeclaredField("sys_paths").apply {
+                        isAccessible = true
+                    }
+                    field.set(null, null)
+                }
+                catch(ex: Exception){
+                    when(ex){
+                        is SecurityException, is NoSuchFieldException -> {
+                            //noop, this is expected unhappy path.
+                        }
+                        else -> throw ex
+                    }
+                }
 
-            // set sys_paths to null; this will force a re-parse of the java.library.path by System.loadLibrary,
-            // thus pushing our changes.
-            // note we might be able to do this with Unsafe:
-            // https://javax0.wordpress.com/2017/05/03/hacking-the-integercache-in-java-9/
-
-            val usf = Class.forName("sun.misc.Unsafe")
-            val unsafeField = usf.getDeclaredField("theUnsafe")
-            unsafeField.isAccessible = true
-            val unsafe = unsafeField.get(null) as sun.misc.Unsafe
-            val clazz = ClassLoader::class.java
-
-            val field = clazz.getField("sys_paths")
-
-            fail; //god damn, i donno man, JNI sucks.
-
-            unsafe.getAndSetObject(unsafe.staticFieldBase(field), unsafe.staticFieldOffset(field), null)
-
-            try {
-                listOf("msvcr110", "vcomp110", "libz3", "libz3java")
-                        .map { System.loadLibrary(it) }
-            }
-            catch(ex: UnsatisfiedLinkError){
-                System.err.println("failed to load Z3")
-                ex.printStackTrace(System.err)
+                try {
+                    for(library in listOf("msvcr120", "vcomp120", "libz3", "libz3java")){
+                        System.loadLibrary(library)
+                    }
+                }
+                // else, we're on java 9+, and the user didnt put z3 on the java.library.path,
+                // and its not on the default path
+                // all we can do is fail with the best error we can
+                catch(ex: UnsatisfiedLinkError){
+                    System.err.println("failed to load Z3: java.library.path was '$oldValue'")
+                    System.err.println("(did you set -Djava.library.path=%PATH%;deps/$Z3DepDir/bin?)")
+                    ex.printStackTrace(System.err)
+                }
             }
         }
 

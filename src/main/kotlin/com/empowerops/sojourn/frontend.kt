@@ -6,8 +6,6 @@ import com.empowerops.babel.CompilationFailure
 
 suspend fun main(args: Array<String>){
 
-    println("home is ${System.getProperty("java.home")}")
-
     val expr = args.joinToString(" ")
 
     val compiled = BabelCompiler().compile(expr)
