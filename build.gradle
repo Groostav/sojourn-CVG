@@ -49,6 +49,7 @@ test {
 }
 
 //alright, so this isnt working for me. Will investigate later.
-//launch4j {
-//    mainClassName = 'com.empowerops.sojourn.FrontendKt'
-//}
+launch4j {
+    mainClassName = 'com.empowerops.sojourn.FrontendKt'
+    headerType = 'console'
+}

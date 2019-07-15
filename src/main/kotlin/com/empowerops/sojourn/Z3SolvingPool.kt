@@ -95,8 +95,14 @@ class Z3SolvingPool private constructor(
                 set(null, null)
             }
 
-            listOf("msvcr110", "vcomp110", "libz3", "libz3java")
-                    .map { System.loadLibrary(it) }
+            try {
+                listOf("msvcr110", "vcomp110", "libz3", "libz3java")
+                        .map { System.loadLibrary(it) }
+            }
+            catch(ex: UnsatisfiedLinkError){
+                System.err.println("failed to load Z3")
+                ex.printStackTrace(System.err)
+            }
         }
 
         fun <T> Stream<T>.asSequence(): Sequence<T> = Sequence(this::iterator)
