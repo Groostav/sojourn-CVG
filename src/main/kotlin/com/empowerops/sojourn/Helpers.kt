@@ -3,10 +3,12 @@ package com.empowerops.sojourn
 import com.empowerops.babel.BabelExpression
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.*
+import kotlin.system.measureNanoTime
 import kotlin.system.measureTimeMillis
 
 fun Double.isPassedConstraint(tolerance: Double = 0.0): Boolean = this <= 0.0 + tolerance
 
+const val NANOS_PER_MILLI = 1000 * 1000
 
 fun <R> measureTime(op: () -> R): Pair<Long, R> {
     var result: Any? = null
@@ -14,7 +16,7 @@ fun <R> measureTime(op: () -> R): Pair<Long, R> {
         result = op()
     }
     @Suppress("UNCHECKED_CAST") //safe by inline-nature of measureTimeMillis
-    return time to (result as R)
+    return time.coerceAtLeast(1) to (result as R)
 }
 
 

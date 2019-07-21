@@ -14,6 +14,12 @@ interface ConstraintSolvingPoolFactory {
 }
 
 interface ConstraintSolvingPool {
+    // note: the results may not actually be feasible!
+    // at time of writing, there are two reasons a member of the result might not actually be feasible:
+    // 1. rounding error
+    // 2. SMT solver hit something it couldnt transcode.
+    //
+    // you must filter this list on the callers side!
     fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector>
 }
 

@@ -2,6 +2,7 @@
 package com.empowerops.sojourn
 
 import com.empowerops.babel.BabelExpression
+import com.microsoft.z3.Status
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.immutableListOf
 import kotlinx.collections.immutable.*
@@ -15,10 +16,10 @@ data class Generation(val satisfiable: Satisfiability, val values: ImmutableList
 
 val IMPROVER_HANDICAP = 0.1
 val SMT_HANDICAP = 0.005
-val MINIMUM_WIN = 0.01
 
 val TOUGH_PATH_MAX_TARGET = 5_000
 val EASY_PATH_MAX_TARGET = 10_000
+val EASY_PATH_THRESHOLD_FACTOR = 0.1
 
 
 suspend fun makeSamples(
@@ -36,7 +37,7 @@ suspend fun makeSamples(
     val initialResults = sampler.makeNewPointGeneration(initialRoundTarget, seeds)
 
     when {
-        initialResults.size > 0.1 * initialRoundTarget -> {
+        initialResults.size > EASY_PATH_THRESHOLD_FACTOR * initialRoundTarget -> {
             var results = initialResults
             while(results.size < targetPointCount){
                 results += sampler.makeNewPointGeneration(targetPointCount - results.size, results + seeds)
@@ -67,15 +68,23 @@ suspend fun makeSamples(
                     measureTime { smt.makeNewPointGeneration(nextRoundSmtTarget, pool + seeds) }
                 }
 
+                if(smt.check() == Status.UNSATISFIABLE){
+                    trace { "unsat" }
+                    return Generation(Satisfiability.UNSATISFIABLE, immutableListOf())
+                }
+
                 val (samplingTime, samplingResults) = samplingResultsAsync.await()
                 val (improoverTime, improoverResults) = improoverResultsAsync.await()
                 val (smtTime, smtResults) = smtResultsAsync.await()
 
                 val roundResults = samplingResults + improoverResults + smtResults
                 pool += roundResults
+                val previousQualityResults = qualityResults
                 qualityResults += roundResults.filter { constraints.passFor(it) }
+                val newResultCount = qualityResults.size - previousQualityResults.size
 
-                nextRoundTarget = (targetPointCount - pool.size).coerceIn(1 .. TOUGH_PATH_MAX_TARGET)
+                val previousRoundTarget = nextRoundTarget
+                nextRoundTarget = (targetPointCount - qualityResults.size).coerceIn(1 .. TOUGH_PATH_MAX_TARGET)
 
                 val samplingWin = samplingResults.size.toDouble() / samplingTime
                 val improoverWin = improoverResults.size.toDouble() / improoverTime
@@ -83,15 +92,20 @@ suspend fun makeSamples(
 
                 val totalWin = samplingWin + improoverWin + smtWin
 
-                if(totalWin < MINIMUM_WIN){
+                trace {
+                    "round results: target=$previousRoundTarget, SMT=$smtWin, Imp=$improoverWin, Sampling=$samplingWin"
+                }
+
+                if(newResultCount == 0){
+                    trace { "no-yards" }
                     return Generation(Satisfiability.UNKNOWN, qualityResults)
                 }
 
-                nextRoundSamplingTarget = (nextRoundTarget * (samplingWin / totalWin)).toInt().coerceAtLeast(100)
+                nextRoundSamplingTarget = (nextRoundTarget * (samplingWin / totalWin)).toInt().coerceAtLeast(10)
                 nextRoundImprooverTarget = (nextRoundTarget * (improoverWin / totalWin) * IMPROVER_HANDICAP).toInt().coerceAtLeast(10)
                 nextRoundSmtTarget = (nextRoundTarget * (smtWin / totalWin) * SMT_HANDICAP).toIntAtLeast1().coerceAtMost(100)
-
             }
+
             return Generation(Satisfiability.SATISFIABLE, qualityResults.subList(0, targetPointCount))
         }
     }

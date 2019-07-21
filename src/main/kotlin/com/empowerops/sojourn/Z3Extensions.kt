@@ -35,6 +35,7 @@ class ContextConfigurator(val z3: Context){
     //note kotlin will use left-associativity here.
 
     infix fun ArithExpr.eq(right: Int): BoolExpr = z3.mkEq(this, right.zr)
+    infix fun ArithExpr.eq(right: Double): BoolExpr = z3.mkEq(this, right.zr)
     infix fun ArithExpr.neq(right: Int): BoolExpr = ! z3.mkEq(this, right.zr)
     infix fun Int.eq(right: ArithExpr): BoolExpr = z3.mkEq(this.zr, right)
     infix fun Int.neq(right: ArithExpr): BoolExpr = ! z3.mkEq(this.zr, right)

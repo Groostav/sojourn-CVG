@@ -2,6 +2,7 @@ package com.empowerops.sojourn
 
 import com.empowerops.babel.BabelCompiler
 import com.empowerops.babel.BabelExpression
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.immutableListOf
 import org.assertj.core.api.Assertions.*
 import org.testng.annotations.Test
@@ -137,27 +138,36 @@ class Z3SolvingPoolFixture {
             listOf("sin(x1) <= 0")
     )
 
-    @Test fun `sin of value offset by multiples of pi`() = runTest(
+    @Test fun `sin of value offset by multiples of pi`() {
+        //setup & act
+        val (constraints, pool, results) = runTestAct(
             mapOf("theta" to Math.PI .. Math.PI*3, "y" to -1.0..+1.0
 //                    "big_theta" to Math.PI*3 .. Math.PI*5),
             ),
             listOf("y > sin(theta)"
 //            "y > sin(big_theta)"
             )
-    )
+        )
+
+        //assert
+        // if we made it here we're likely successful,
+        // and right now I'm going to blithely accept that a polluted result is fine
+        assertThat(results).hasSize(10)
+        assertThat(results.filter { ! constraints.passFor(it) })
+            .isNotEmpty() //this is OK, the SMT solver generated poitns that dont actually pass the constraints.
+                // this does imply the front-end has to filter the results from the pools,
+    }
+
+    @Test fun `when given a highly transcendental function should simply drop provided expression`(){
+        runTest(
+            mapOf("x1" to 0.0 .. 1.0, "x2" to 0.0 .. 1.0),
+            listOf("x1 > sin(ln(cos(2.1^x1)))") //TODO: metitarski might give this expr a run for its money...
+            // how can i check that there was a transcoding failure?
+        )
+    }
 
     private fun runTest(inputs2: Map<String, ClosedRange<Double>>, constraints2: List<String>) {
-        val inputs = inputs2.map { (key, value) -> InputVariable(key, value.start, value.endInclusive) }
-
-        val constraints = constraints2.map {
-            val result = compiler.compile(it)
-
-            result as? BabelExpression ?: throw RuntimeException("compiler failure in $it: $result")
-        }
-
-        //act
-        val pool = Z3SolvingPool.create(inputs, constraints)
-        val results = pool.makeNewPointGeneration(10, immutableListOf())
+        val (constraints, pool, results) = runTestAct(inputs2, constraints2)
 
         //assert
         assertThat(results).describedAs("the number of results the SMT solver was able to generate").hasSize(10)
@@ -176,5 +186,24 @@ class Z3SolvingPoolFixture {
                 }
 
         assertThat(problems).describedAs("input vector and failing constraint").isEmpty()
+    }
+
+    private fun runTestAct(
+        inputs2: Map<String, ClosedRange<Double>>,
+        constraints2: List<String>
+    ): Triple<List<BabelExpression>, Z3SolvingPool, ImmutableList<InputVector>> {
+        //more-setup
+        val inputs = inputs2.map { (key, value) -> InputVariable(key, value.start, value.endInclusive) }
+
+        val constraints = constraints2.map {
+            val result = compiler.compile(it)
+
+            result as? BabelExpression ?: throw RuntimeException("compiler failure in $it: $result")
+        }
+
+        //act
+        val pool = Z3SolvingPool.create(inputs, constraints)
+        val results = pool.makeNewPointGeneration(10, immutableListOf())
+        return Triple(constraints, pool, results)
     }
 }

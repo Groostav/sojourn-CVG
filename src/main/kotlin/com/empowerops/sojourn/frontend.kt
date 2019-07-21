@@ -6,6 +6,8 @@ import com.empowerops.babel.CompilationFailure
 
 suspend fun main(args: Array<String>){
 
+//    if(args.firstOrNull() == "--")
+
     val expr = args.joinToString(" ")
 
     val compiled = BabelCompiler().compile(expr)

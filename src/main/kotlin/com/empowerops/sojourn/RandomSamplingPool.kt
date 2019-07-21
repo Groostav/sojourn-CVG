@@ -4,6 +4,8 @@ import com.empowerops.babel.BabelExpression
 import kotlinx.collections.immutable.*
 import java.util.*
 
+const val OVER_SAMPLING_FACTORY = 100
+
 class RandomSamplingPool private constructor(
         val inputVariables: List<InputVariable>,
         val constraints: Collection<BabelExpression>,
@@ -15,7 +17,7 @@ class RandomSamplingPool private constructor(
 
         var results = immutableListOf<InputVector>()
 
-        for(point in 0 until pointCount){
+        for(point in 0 until (pointCount * OVER_SAMPLING_FACTORY)){
 
             val candidate = makeRandomVector()
 
@@ -24,6 +26,10 @@ class RandomSamplingPool private constructor(
             }
 
             results += candidate
+
+            if(results.size >= pointCount){
+                break
+            }
         }
 
         return results

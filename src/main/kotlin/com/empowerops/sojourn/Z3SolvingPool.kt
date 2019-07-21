@@ -11,8 +11,9 @@ import java.util.*
 import java.util.stream.Stream
 
 class Z3SolvingPool private constructor(
-        val inputs: List<InputVariable>,
-        val constraints: Collection<BabelExpression>
+    //todo: replace me with Map<String, InputVariable>
+    private val inputs: List<InputVariable>,
+    private val constraints: Collection<BabelExpression>
 ): ConstraintSolvingPool {
 
 
@@ -34,13 +35,13 @@ class Z3SolvingPool private constructor(
     }
 
 //    val floor: FuncDecl by lazyZ3 { Function("floor", realSort, returnType = realSort) }
-    val sgn: UnaryFunction<ArithExpr, RealExpr> by lazyZ3 { UnaryFunction("sgn", Arith, Real) }
-    val abs: UnaryFunction<ArithExpr, RealExpr> by lazyZ3 { UnaryFunction("abs", Arith, Real) }
+    private val sgn: UnaryFunction<ArithExpr, RealExpr> by lazyZ3 { UnaryFunction("sgn", Arith, Real) }
+    private val abs: UnaryFunction<ArithExpr, RealExpr> by lazyZ3 { UnaryFunction("abs", Arith, Real) }
 
-    val mod: BinaryFunction<ArithExpr, ArithExpr, RealExpr> by lazyZ3 { BinaryFunction("mod", Arith, Arith, Real) }
-    val quot: BinaryFunction<ArithExpr, ArithExpr, IntExpr> by lazyZ3 { BinaryFunction("quot", Arith, Arith, Integer) }
+    private val mod: BinaryFunction<ArithExpr, ArithExpr, RealExpr> by lazyZ3 { BinaryFunction("mod", Arith, Arith, Real) }
+    private val quot: BinaryFunction<ArithExpr, ArithExpr, IntExpr> by lazyZ3 { BinaryFunction("quot", Arith, Arith, Integer) }
 
-    fun mkModAxioms(X: ArithExpr, k: ArithExpr) = z3 {
+    private fun mkModAxioms(X: ArithExpr, k: ArithExpr) = z3 {
         solver.add(
                 (k neq 0) implies (0 lte mod(X, k)),
                 (k gt 0) implies (mod(X, k) lt k),
@@ -49,7 +50,7 @@ class Z3SolvingPool private constructor(
         )
     }
 
-    val vars: UnaryFunction<RealExpr, RealExpr> by lazyZ3 {
+    private val vars: UnaryFunction<RealExpr, RealExpr> by lazyZ3 {
         UnaryFunction("var", Real, Real).also {
             for((index, input) in inputs.withIndex()){
                 solver += it((index + 1).zr) eq inputExprs.getValue(input.name)
@@ -57,16 +58,18 @@ class Z3SolvingPool private constructor(
         }
     }
 
+    fun check() = solver.check()
+
     override fun toString(): String {
         return "SOLVER:\n$solver\nMODEL:${try { solver.model } catch(ex: Z3Exception) { null }}"
     }
 
     companion object: ConstraintSolvingPoolFactory {
 
-        val arch = System.getProperty("os.arch")
-        val Z3DepDir = "z3-4.8.5-merged/$arch-win"
+        private val arch = System.getProperty("os.arch")
+        private val Z3DepDir = "z3-4.8.5-merged/$arch-win"
 
-        val NoLibraryPathModifications: Boolean = java.lang.Boolean.getBoolean("${ConstraintSolvingPoolFactory::class.qualifiedName}.NoLibraryPathModifications")
+        private val NoLibraryPathModifications: Boolean = java.lang.Boolean.getBoolean("${ConstraintSolvingPoolFactory::class.qualifiedName}.NoLibraryPathModifications")
 
         init {
             val props = System.getProperties() as MutableMap<String, String>
@@ -131,13 +134,20 @@ class Z3SolvingPool private constructor(
             val transcoder = BabelZ3TranscodingWalker()
             recompiler.compile(constraint.expressionLiteral, transcoder)
 
-            transcoder.requirements.forEach { solver += it }
+            transcoder.requirements.forEach { transcodedConstraintPart ->
+                solver.push()
+                solver += transcodedConstraintPart
 
-            val newSatState = solver.check()
+                val newSatState = solver.check()
 
-            if(newSatState != Status.SATISFIABLE){
-                trace { "constraint expr '${constraint.expressionLiteral}' made constraint set $newSatState\n solver is:\n$solver" }
-                //we could simply drop this and do a guess-and-check
+                if(newSatState != Status.SATISFIABLE){
+                    trace { "constraint expr '${constraint.expressionLiteral}' made constraint set $newSatState\n solver is:\n$solver" }
+
+                    if(newSatState == Status.UNKNOWN){
+                        //if its UNSAT, leave it that way, and the caller can ispect the state himself.
+                        solver.pop()
+                    }
+                }
             }
         }
     }
@@ -146,64 +156,97 @@ class Z3SolvingPool private constructor(
 
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
 
-        //TODO: use a distence metric + optimization, rather than simple model subtraction.
-        //or use a mkTupleSort? maybe just use an array?
-//                val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
-//                val p0 = ctx.mkConstDecl("p0", pointCtor)
-//                solver.add(ctx.mkEq(ctx.selec()))
+        solver.push()
 
-        var resolved = solver.check()
+        try {
+            z3 {
 
-        if(resolved == Status.UNSATISFIABLE) throw UnsatisfiableConstraintsException(solver.toString())
+                for((index, point)in existingPoints.withIndex()){
+                    //TODO: solver push-pop?
 
-        var model = solver.model
-        val seed = model.buildInputVector(inputs)
+                    for((varName, existingValue) in point){
 
-//        if ( ! constraints.passFor(seed)) {
-            //this is likely from a rounding error, we're gonna have to think of something smarter at some point.
-//            return immutableListOf()
-//            val x = 4;
-//        }
-        
-        var results = immutableListOf(seed)
+                        solver.push()
 
-        z3 {
+                        val offset = 0.000005 * inputs.single { it.name == varName }.span
+                        val prefix = "negate-seed-$index-$varName"
+                        val temp = z3.mkAnonRealConst(prefix)
 
-            for(index in 1 until pointCount){
-                solver += model.constDecls
-                        .filter { it.name.toString() in inputs.map { it.name } }
-                        .flatMap { func ->
-                            val offset = 0.000005 * inputs.single { it.name == func.name.toString() }.span
-                            val value = model.getConstInterp(func) as ArithExpr
-                            val temp = z3.mkAnonRealConst()
-                            listOf(
-                                    temp eq value,
-                                    (Real(func.name) lt (temp - offset)) or (Real(func.name) gt (temp + offset))
-                            )
+                        solver += (temp eq existingValue) and ((Real(varName) lt (temp - offset)) or (Real(varName) gt (temp + offset)))
+
+                        val newSatState = solver.check()
+
+                        if(newSatState != Status.SATISFIABLE) {
+                            fail; //yeah ok, so the problem is your strategy of negating a boundary of 0.0005 around the existing value
+                            // if the region is really small, then that negates the entire feasible region.
+                            // so, some things TODO:
+                            // 1. maybe add the flipping strategy, where we explicitly ask for "greater than" or "less than" values of existing seeds?
+                            // 2. whats the perofmrnace impact of calling check() this often? what about push/pop? should we be avoiding this?
+                            trace { "negation for $varName=$existingValue '$prefix' made constraint set $newSatState\n solver is:\n$solver" }
+                            solver.pop()
+                            break
                         }
-
-                resolved = solver.check()
-                if(resolved == Status.UNSATISFIABLE) {
-                    //likely our point negation strategy pushed us into UNSAT
-                    break
+                    }
                 }
-
-                model = solver.model
-                val nextResult = model.buildInputVector(inputs)
-
-//                if ( ! constraints.passFor(nextResult)) {
-//                    TODO("again, probably rounding error. Not sure what to do.")
-//                    break
-//                }
-
-                results += nextResult
             }
 
-            return results
+            var resolved = solver.check()
+
+            if (resolved == Status.UNSATISFIABLE) throw UnsatisfiableConstraintsException(solver.toString())
+
+            var model = solver.model
+            val seed = model.buildInputVector(inputs)
+
+            var results = immutableListOf(seed)
+
+            z3 {
+
+                // reminder: after solving, z3 will generate a function for input vars for solutions
+                // (eg decl-fun x3() = 37.5)
+                fun makeNegationOf(inputDecl: FuncDecl): BoolExpr{
+                    val offset = 0.000005 * inputs.single { it.name == inputDecl.name.toString() }.span
+                    val value = model.getConstInterp(inputDecl) as ArithExpr
+                    val temp = z3.mkAnonRealConst("negate-prev-${inputDecl.name}")
+
+                    return (temp eq value) and ((Real(inputDecl.name) lt (temp - offset)) or (Real(inputDecl.name) gt (temp + offset)))
+                }
+
+                for (index in 1 until pointCount) {
+
+                    //TODO: use a distence metric + optimization, rather than simple model subtraction.
+                    //or use a mkTupleSort? maybe just use an array?
+                    //  val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
+                    //  val p0 = ctx.mkConstDecl("p0", pointCtor)
+                    //  solver.add(ctx.mkEq(ctx.selec()))
+
+                    //negate
+                    solver += model.constDecls
+                        .filter { it.name.toString() in inputs.map { it.name } }
+                        .map { func -> makeNegationOf(func) }
+
+                    resolved = solver.check()
+                    if (resolved == Status.UNSATISFIABLE) {
+                        //likely our point negation strategy pushed us into UNSAT
+                        // TODO: we should be smarter about this, rather than negating blobs
+                        // why dont we play games with greater-than and less than?
+                        break
+                    }
+
+                    model = solver.model
+                    val nextResult = model.buildInputVector(inputs)
+
+                    results += nextResult
+                }
+
+                return results
+            }
+        }
+        finally {
+            solver.pop()
         }
     }
 
-    fun <T> Deque<T>.pop(count: Int) = (1 .. count).map { this.pop() }
+    private fun <T> Deque<T>.pop(count: Int) = (1 .. count).map { this.pop() }
 
     inner class BabelZ3TranscodingWalker: BabelParserBaseListener() {
 
@@ -469,7 +512,7 @@ class Z3SolvingPool private constructor(
     fun <R> lazyZ3(initializer: ContextConfigurator.() -> R) = lazy { z3.configureReals(initializer) }
 }
 
-fun Model.buildInputVector(inputs: List<InputVariable>): InputVector {
+private fun Model.buildInputVector(inputs: List<InputVariable>): InputVector {
     val valuesByName = constDecls
             .map {
                 it.name.toString() to getConstInterp(it)
@@ -492,7 +535,7 @@ fun Model.buildInputVector(inputs: List<InputVariable>): InputVector {
 }
 
 
-operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
+private operator fun RuleContext.get(index: Int): ParseTree = getChild(index)
 
 private inline operator fun <K, V> Map<K, V>.invoke(key: K): V = getValue(key)
 
