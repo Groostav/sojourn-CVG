@@ -3,8 +3,9 @@ package com.empowerops.sojourn
 import com.empowerops.babel.BabelCompiler
 import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
+import kotlinx.coroutines.runBlocking
 
-suspend fun main(args: Array<String>){
+suspend fun main(args: Array<String>) = runBlocking<Unit> {
 
     // TODO i would really prefer to use a library for this...
     // why not getoptk you dingus?
@@ -28,21 +29,24 @@ suspend fun main(args: Array<String>){
     when(compiled){
         is CompilationFailure -> {
             println("compilation failure: ${compiled.problems.joinToString("\n")}")
-            return
+            return@runBlocking
         }
         is BabelExpression -> {
 
             val inputs = compiled.staticallyReferencedSymbols.map {
                 InputVariable(it, 0.0, 1.0)
             }
-            val samples = makeSamples(
+            val sampleStream = makeSampleAgent(
                 inputs,
                 targetPointCount,
                 setOf(compiled)
             )
 
-            println("${samples.satisfiable}")
-            samples.values.forEach { println(it.toString()) }
+            for(generation in sampleStream){
+                //TODO: this basic logging scheme is quickly becoming a problem. need to make this nice.
+                println("${generation.satisfiable}")
+                generation.values.forEach { println(it.toString()) }
+            }
         }
     }
 }

@@ -13,7 +13,7 @@ import kotlinx.coroutines.channels.produce
 import java.util.*
 
 enum class Satisfiability { SATISFIABLE, UNSATISFIABLE, UNKNOWN }
-data class Generation(val satisfiable: Satisfiability, val values: ImmutableList<InputVector>)
+data class Generation(val satisfiable: Satisfiability, val values: List<InputVector>)
 
 val IMPROVER_HANDICAP = 0.1
 val SMT_HANDICAP = 0.005
@@ -54,6 +54,7 @@ fun CoroutineScope.makeSampleAgent(
             while(results.size < targetPointCount){
                 results += sampler.makeNewPointGeneration(targetPointCount - results.size, results + seeds)
             }
+
             send(Generation(Satisfiability.SATISFIABLE, results))
         }
         else -> {
@@ -85,9 +86,8 @@ fun CoroutineScope.makeSampleAgent(
 
                 val roundResults = samplingResults + improoverResults + smtResults
                 pool += roundResults
-                val previousQualityResults = qualityResults
-                qualityResults += roundResults.filter { constraints.passFor(it) }
-                val newResultCount = qualityResults.size - previousQualityResults.size
+                val newQualityResults = roundResults.filter { constraints.passFor(it) }
+                qualityResults += newQualityResults
 
                 val previousRoundTarget = nextRoundTarget
                 nextRoundTarget = (targetPointCount - qualityResults.size).coerceIn(1 .. TOUGH_PATH_MAX_TARGET)
@@ -99,12 +99,12 @@ fun CoroutineScope.makeSampleAgent(
                 val totalWin = samplingWin + improoverWin + smtWin
 
                 trace {
-                    "round results: target=$previousRoundTarget, got=$newResultCount, SMT($nextRoundSmtTarget)=$smtWin, Imp($nextRoundImprooverTarget)=$improoverWin, Sampling($nextRoundSamplingTarget)=$samplingWin"
+                    "round results: target=$previousRoundTarget, got=${newQualityResults.size}, SMT($nextRoundSmtTarget)=$smtWin, Imp($nextRoundImprooverTarget)=$improoverWin, Sampling($nextRoundSamplingTarget)=$samplingWin"
                 }
+                send(Generation(Satisfiability.SATISFIABLE, newQualityResults))
 
-                if(newResultCount == 0){
+                if(newQualityResults.isEmpty()){
                     trace { "no-yards" }
-                    send(Generation(Satisfiability.UNKNOWN, qualityResults))
                 }
 
                 nextRoundSamplingTarget = (nextRoundTarget * (samplingWin / totalWin)).toInt().coerceAtLeast(10)
@@ -115,8 +115,6 @@ fun CoroutineScope.makeSampleAgent(
                     nextRoundSmtTarget = nextRoundSmtTarget.coerceAtLeast(1)
                 }
             }
-
-            send(Generation(Satisfiability.SATISFIABLE, qualityResults.subList(0, targetPointCount)))
         }
     }
 }
