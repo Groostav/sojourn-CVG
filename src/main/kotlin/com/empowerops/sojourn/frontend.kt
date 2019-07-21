@@ -6,9 +6,22 @@ import com.empowerops.babel.CompilationFailure
 
 suspend fun main(args: Array<String>){
 
-//    if(args.firstOrNull() == "--")
+    // TODO i would really prefer to use a library for this...
+    // why not getoptk you dingus?
+    var exprArgs = args.toList()
 
-    val expr = args.joinToString(" ")
+    val targetPointCount = if(args.firstOrNull() == "--targetPointCount"){
+        when(val passed = args.drop(1).first()){
+            "inf" -> Int.MAX_VALUE
+            null -> Int.MAX_VALUE
+            else -> passed.toInt()
+        }.also {
+            exprArgs = exprArgs.drop(2)
+        }
+    }
+    else 10
+
+    val expr = exprArgs.joinToString(" ")
 
     val compiled = BabelCompiler().compile(expr)
 
@@ -24,7 +37,7 @@ suspend fun main(args: Array<String>){
             }
             val samples = makeSamples(
                 inputs,
-                10,
+                targetPointCount,
                 setOf(compiled)
             )
 

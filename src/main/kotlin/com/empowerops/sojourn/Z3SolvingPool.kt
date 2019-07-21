@@ -156,6 +156,11 @@ class Z3SolvingPool private constructor(
 
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
 
+        if(pointCount == 0) {
+            trace { "asked SMT for 0 points" }
+            return immutableListOf()
+        }
+
         solver.push()
 
         try {
@@ -168,20 +173,26 @@ class Z3SolvingPool private constructor(
 
                         solver.push()
 
-                        val offset = 0.000005 * inputs.single { it.name == varName }.span
                         val prefix = "negate-seed-$index-$varName"
                         val temp = z3.mkAnonRealConst(prefix)
 
-                        solver += (temp eq existingValue) and ((Real(varName) lt (temp - offset)) or (Real(varName) gt (temp + offset)))
+                        solver += (temp eq existingValue.zr) and (Real(varName) neq temp)
 
                         val newSatState = solver.check()
 
                         if(newSatState != Status.SATISFIABLE) {
-                            fail; //yeah ok, so the problem is your strategy of negating a boundary of 0.0005 around the existing value
+//                            fail; //yeah ok, so the problem is your strategy of negating a boundary of 0.0005 around the existing value
                             // if the region is really small, then that negates the entire feasible region.
                             // so, some things TODO:
                             // 1. maybe add the flipping strategy, where we explicitly ask for "greater than" or "less than" values of existing seeds?
                             // 2. whats the perofmrnace impact of calling check() this often? what about push/pop? should we be avoiding this?
+
+                            // ok, regarding number 1, heres my plan:
+                            // keep a "span pool", that is the map of variable to the extreema of its solved values.
+                            // and keep a coutn of "solved X1 by going lower" and "solved X1 by going higher"
+                            // then reset the solver, and when:
+                            //     case 1: count of solved-higher > count of solved-lower; must be less than extreema(x1).lower
+                            //     else : must be greater than extreema(x1).higher
                             trace { "negation for $varName=$existingValue '$prefix' made constraint set $newSatState\n solver is:\n$solver" }
                             solver.pop()
                             break
@@ -204,11 +215,10 @@ class Z3SolvingPool private constructor(
                 // reminder: after solving, z3 will generate a function for input vars for solutions
                 // (eg decl-fun x3() = 37.5)
                 fun makeNegationOf(inputDecl: FuncDecl): BoolExpr{
-                    val offset = 0.000005 * inputs.single { it.name == inputDecl.name.toString() }.span
                     val value = model.getConstInterp(inputDecl) as ArithExpr
-                    val temp = z3.mkAnonRealConst("negate-prev-${inputDecl.name}")
 
-                    return (temp eq value) and ((Real(inputDecl.name) lt (temp - offset)) or (Real(inputDecl.name) gt (temp + offset)))
+                    val temp = z3.mkAnonRealConst("negate-prev-${inputDecl.name}")
+                    return (temp eq value) and (Real(inputDecl.name) neq temp)
                 }
 
                 for (index in 1 until pointCount) {
@@ -426,6 +436,7 @@ class Z3SolvingPool private constructor(
 //                            requirements += sinned lte 1
 //                            requirements += sinned gte -1
 
+                            //TODO: regarding "how does intel do it", https://en.wikipedia.org/wiki/CORDIC
 
                             sinned
                         }
