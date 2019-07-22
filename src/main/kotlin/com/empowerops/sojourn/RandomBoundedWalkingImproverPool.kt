@@ -11,13 +11,22 @@ class RandomBoundedWalkingImproverPool private constructor(
         val random: Random
 ): ConstraintSolvingPool {
 
+    override val name = "Improver"
+
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
-        if(existingPoints.isEmpty()) return immutableListOf()
+
+        if(existingPoints.isEmpty()) {
+            trace { "improver called without seeds" }
+            return immutableListOf()
+        }
+
+        val pointCount = pointCount.coerceAtLeast(10)
 
         var results = immutableListOf<InputVector>()
+        val srcPool = existingPoints.takeLast(1_000)
 
         for(pointIdx in 0 until pointCount) {
-            val base = existingPoints[random.nextInt(existingPoints.size)]
+            val base = srcPool[random.nextInt(srcPool.size)]
 
             val direction = randomUnitVector(inputVariables.map { it.name })
 

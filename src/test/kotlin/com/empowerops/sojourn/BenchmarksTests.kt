@@ -14,7 +14,7 @@ operator fun FeasibleRegion.contains(vector: InputVector): Boolean
 
 class Benchmarks {
 
-    val RandomSamplingPool1234 = RandomSamplingPool.Factory(Random(1234L))
+    val RandomSamplingPool1234 = RandomSamplingPool.Factory(Random(1234L), false)
     val RandomWalkingPool1234 = RandomBoundedWalkingImproverPool.Factory(Random(1234L))
 
     @Test fun `sampling sanity check`() = runTest(RandomSamplingPool1234, SanityCheck)

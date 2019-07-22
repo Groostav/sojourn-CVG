@@ -5,22 +5,20 @@ import com.empowerops.babel.BabelExpression
 import com.microsoft.z3.Status
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.immutableListOf
-import kotlinx.collections.immutable.*
+import kotlinx.collections.immutable.plus
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.first
 import kotlinx.coroutines.channels.produce
+import java.text.DecimalFormat
 import java.util.*
 
 enum class Satisfiability { SATISFIABLE, UNSATISFIABLE, UNKNOWN }
 data class Generation(val satisfiable: Satisfiability, val values: List<InputVector>)
 
-val IMPROVER_HANDICAP = 0.1
-val SMT_HANDICAP = 0.005
-
-val TOUGH_PATH_MAX_TARGET = 5_000
-val EASY_PATH_MAX_TARGET = 10_000
+val SOLUTION_PAGE_SIZE = 10_000
 val EASY_PATH_THRESHOLD_FACTOR = 0.1
+val WARMUP_ROUNDS = 10
 
 fun CoroutineScope.makeSampleAgent(
     inputs: List<InputVariable>,
@@ -31,7 +29,8 @@ fun CoroutineScope.makeSampleAgent(
     improverSeed: Random = Random()
 ) = produce<Generation>(Dispatchers.Default) {
 
-    val sampler = RandomSamplingPool.Factory(samplerSeed).create(inputs, constraints)
+    val fairSampler = RandomSamplingPool.create(inputs, constraints)
+    val adaptiveSampler = RandomSamplingPool.Factory(samplerSeed, true).create(inputs, constraints)
     val improover = RandomBoundedWalkingImproverPool.Factory(improverSeed).create(inputs, constraints)
     val smt = Z3SolvingPool.create(inputs, constraints)
 
@@ -41,8 +40,8 @@ fun CoroutineScope.makeSampleAgent(
         return@produce
     }
 
-    val initialRoundTarget = targetPointCount.coerceAtMost(EASY_PATH_MAX_TARGET)
-    val initialResults = sampler.makeNewPointGeneration(initialRoundTarget, seeds)
+    val initialRoundTarget = targetPointCount.coerceAtMost(SOLUTION_PAGE_SIZE)
+    val initialResults = fairSampler.makeNewPointGeneration(initialRoundTarget, seeds)
 
     trace { "initial-sampling gen hit ${ ((100.0 * initialResults.size) / initialRoundTarget).toInt()}%" }
 
@@ -52,7 +51,7 @@ fun CoroutineScope.makeSampleAgent(
 
             var results = initialResults
             while(results.size < targetPointCount){
-                results += sampler.makeNewPointGeneration(targetPointCount - results.size, results + seeds)
+                results += fairSampler.makeNewPointGeneration(targetPointCount - results.size, results + seeds)
             }
 
             send(Generation(Satisfiability.SATISFIABLE, results))
@@ -60,60 +59,107 @@ fun CoroutineScope.makeSampleAgent(
         else -> {
             trace { "balancing" }
 
-            var nextRoundTarget = targetPointCount.coerceAtMost(TOUGH_PATH_MAX_TARGET)
+            var nextRoundTarget = targetPointCount.coerceIn(1 .. SOLUTION_PAGE_SIZE)
 
-            var pool = initialResults
-            var qualityResults = pool.filter { constraints.passFor(it) }.toImmutableList()
+            var pool = seeds + initialResults
+            var publishedPoints = immutableListOf<InputVector>()
 
-            var nextRoundSamplingTarget = nextRoundTarget.coerceAtLeast(1)
-            var nextRoundImprooverTarget = (nextRoundTarget*IMPROVER_HANDICAP).toIntAtLeast1()
-            var nextRoundSmtTarget = (nextRoundTarget*SMT_HANDICAP).toIntAtLeast1()
+            var targets = listOf(fairSampler, adaptiveSampler, improover)
+                .associate { it to nextRoundTarget / 3}
+                .let { it + (smt to 5) }
 
-            while(qualityResults.size < targetPointCount) {
-                val samplingResultsAsync = GlobalScope.async(Dispatchers.Default) {
-                    measureTime { sampler.makeNewPointGeneration(nextRoundSamplingTarget, pool + seeds) }
-                }
-                val improoverResultsAsync = GlobalScope.async(Dispatchers.Default) {
-                    measureTime { improover.makeNewPointGeneration(nextRoundImprooverTarget, pool + seeds) }
-                }
-                val smtResultsAsync = GlobalScope.async(Dispatchers.Default){
-                    measureTime { smt.makeNewPointGeneration(nextRoundSmtTarget, pool + seeds) }
-                }
+            var roundNo = 1
 
-                val (samplingTime, samplingResults) = samplingResultsAsync.await()
-                val (improoverTime, improoverResults) = improoverResultsAsync.await()
-                val (smtTime, smtResults) = smtResultsAsync.await()
+            val inputNames = inputs.map { it.name }
 
-                val roundResults = samplingResults + improoverResults + smtResults
-                pool += roundResults
-                val newQualityResults = roundResults.filter { constraints.passFor(it) }
-                qualityResults += newQualityResults
-
-                val previousRoundTarget = nextRoundTarget
-                nextRoundTarget = (targetPointCount - qualityResults.size).coerceIn(1 .. TOUGH_PATH_MAX_TARGET)
-
-                val samplingWin = samplingResults.size.toDouble() / samplingTime
-                val improoverWin = improoverResults.size.toDouble() / improoverTime
-                val smtWin = smtResults.size.toDouble() / smtTime
-
-                val totalWin = samplingWin + improoverWin + smtWin
+            while(publishedPoints.size < targetPointCount) try {
 
                 trace {
-                    "round results: target=$previousRoundTarget, got=${newQualityResults.size}, SMT($nextRoundSmtTarget)=$smtWin, Imp($nextRoundImprooverTarget)=$improoverWin, Sampling($nextRoundSamplingTarget)=$samplingWin"
+                    "round start: target=$nextRoundTarget, " +
+                            targets.entries.joinToString { (solver, target) -> "${solver.name}($target)" }
                 }
-                send(Generation(Satisfiability.SATISFIABLE, newQualityResults))
+
+                val resultsAsync: Map<ConstraintSolvingPool, Deferred<PoolResult>> = targets
+                    .mapValues { (solver, target) ->
+                        async(Dispatchers.Default) {
+                            val (time, pts) = measureTime { solver.makeNewPointGeneration(target, pool) }
+                            val (centroid, variance) = findDispersion(inputNames, pts)
+
+                            PoolResult(time, pts, centroid, variance.takeIf { ! it.isNaN() } ?: 0.0)
+                        }
+                    }
+
+                val results: Map<ConstraintSolvingPool, PoolResult> = resultsAsync
+                        .mapValues { (_, deferred) -> deferred.await() }
+
+                val overheadStartTime = System.currentTimeMillis()
+
+                val roundResults = results.values.flatMap { (_, points) -> points }
+                pool += roundResults
+
+                val newQualityResults = roundResults.filter { constraints.passFor(it) }
+
+                trace {
+                    val dispersion = findDispersion(inputNames, newQualityResults)
+                    "round results: " +
+                            "target=$nextRoundTarget, " +
+                            "got=${newQualityResults.size}, " +
+                            "dispersion=${dispersion.variance} " +
+                            results.entries.joinToString { (solver, result) ->
+                                "${solver.name}(${result.points.size}, ${TwoSigFigs.format(result.timeMillis)}ms, v=${TwoSigFigsWithE.format(result.variance)})"
+                            }
+                }
 
                 if(newQualityResults.isEmpty()){
-                    trace { "no-yards" }
+                    trace { "no-yards!!" }
                 }
 
-                nextRoundSamplingTarget = (nextRoundTarget * (samplingWin / totalWin)).toInt().coerceAtLeast(10)
-                nextRoundImprooverTarget = (nextRoundTarget * (improoverWin / totalWin) * IMPROVER_HANDICAP).toInt().coerceAtLeast(10)
-                nextRoundSmtTarget = (nextRoundTarget * (smtWin / totalWin) * SMT_HANDICAP).toInt().coerceAtMost(100)
-
-                if(samplingWin <= 0.01 && improoverWin <= 0.01){
-                    nextRoundSmtTarget = nextRoundSmtTarget.coerceAtLeast(1)
+                if(roundNo > WARMUP_ROUNDS) {
+                    val toPublish = newQualityResults.takeLast(targetPointCount - publishedPoints.size)
+                    send(Generation(Satisfiability.SATISFIABLE, toPublish))
+                    publishedPoints += newQualityResults
                 }
+                else trace { "dropped ${newQualityResults.size} pts on warmup round $roundNo" }
+
+                nextRoundTarget = when {
+                    roundNo < WARMUP_ROUNDS -> SOLUTION_PAGE_SIZE
+                    else -> (targetPointCount - publishedPoints.size).coerceIn(1 .. SOLUTION_PAGE_SIZE)
+                }
+
+                // we balance on performance, unless any pool has a variance significantly worse than the others,
+                // then we avoid that pool
+
+                val speedSum = results.values.sumByDouble { (t, pts, _, _) -> 1.0 * pts.size / t }
+                targets = results.mapValues { (pool, result) ->
+                    val speed = 1.0 * result.points.size / result.timeMillis
+                    (nextRoundTarget * speed / speedSum).toInt()
+                }
+
+                val previousTargets = targets
+                val varianceSum = results.values.sumByDouble { it.variance }
+
+                val varianceAverage = varianceSum / results.values.size
+
+                targets = targets.mapValues { (pool, previousTime) ->
+
+                    val minimumVarianceParticipation = 1.0 / (targets.size * 2)
+
+                    val thisPoolVariance = results.getValue(pool).variance
+                    if (thisPoolVariance / varianceSum < minimumVarianceParticipation){
+                        if(previousTargets.getValue(pool) != 0){
+                            trace { "dropped execution of ${pool.name} as its variance was $thisPoolVariance (average is $varianceAverage)"}
+                        }
+                        0
+                    }
+                    else previousTime
+                }
+
+                trace {
+                    "overhead: ${System.currentTimeMillis() - overheadStartTime}ms"
+                }
+            }
+            finally {
+                roundNo += 1
             }
         }
     }
@@ -130,4 +176,36 @@ suspend fun makeSamples(
     makeSampleAgent(inputs, targetPointCount, constraints, seeds, samplerSeed, improverSeed).first()
 }
 
-private fun Double.toIntAtLeast1() = toInt().coerceAtLeast(1)
+data class PoolResult(val timeMillis: Long, val points: List<InputVector>, val centroid: InputVector, val variance: Double)
+data class Dispersion(val centroid: InputVector, val variance: Double)
+
+fun findDispersion(names: List<String>, points: List<InputVector>): Dispersion {
+
+    val center = findCenter(names, points)
+
+    // as per a simple euclidian distence:
+    // https://stats.stackexchange.com/questions/13272/2d-analog-of-standard-deviation
+    val deviation = if(points.isEmpty()) Double.NaN else points.sumByDouble { point ->
+        val r = point.keys.sumByDouble { Math.pow(point[it]!! - center[it]!!, 2.0) }
+        return@sumByDouble Math.sqrt(r)
+    }
+
+    return Dispersion(center, deviation / points.size)
+}
+
+fun findCenter(names: List<String>, points: List<InputVector>): InputVector {
+    var center = points.firstOrNull()?.mapValues { _, _ -> 0.0 }
+        ?: return names.associate { it to Double.NaN }.toInputVector()
+
+    for(point in points){
+
+        center = center vecPlus point
+    }
+
+    center /= points.size.toDouble()
+
+    return center
+}
+
+private val TwoSigFigs = DecimalFormat("0.##")
+private val TwoSigFigsWithE = DecimalFormat("0.##E0")

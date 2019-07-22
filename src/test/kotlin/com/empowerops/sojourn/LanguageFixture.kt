@@ -1,6 +1,8 @@
 package com.empowerops.sojourn
 
+import kotlinx.collections.immutable.internal.org.pcollections.TreePVector
 import org.assertj.core.api.Assertions.assertThat
+import org.testng.annotations.Ignore
 import org.testng.annotations.Test
 import java.lang.Math.PI
 
@@ -96,6 +98,20 @@ class LanguageFixture {
         val x = PointType.allCases
 
         val y = 4;
+    }
+
+//    @Ignore("pending https://github.com/hrldcpr/pcollections/issues/74")
+    @Test fun `when using a TreePVector should not explode`(){
+        var list = TreePVector.empty<Int>()
+
+        for(i in 0 until 20_000){
+            list = list.plus(i)
+        }
+
+        val res = list.subList(10_000, 20_000)
+
+        require(res.size == 10_000) { "result not correctly shaped" }
+        //pending https://github.com/hrldcpr/pcollections/issues/74
     }
 }
 

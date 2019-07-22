@@ -9,6 +9,7 @@ import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.TerminalNode
 import java.util.*
 import java.util.stream.Stream
+import java.lang.Integer.getInteger
 
 class Z3SolvingPool private constructor(
     //todo: replace me with Map<String, InputVariable>
@@ -16,11 +17,19 @@ class Z3SolvingPool private constructor(
     private val constraints: Collection<BabelExpression>
 ): ConstraintSolvingPool {
 
+    override val name: String = "Z3-SMT"
 
     private val recompiler = BabelCompiler()
     private val z3 = Context()
 //    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
-    private val solver = z3 { Solver() }
+
+    private val solver = z3 {
+        Solver().apply {
+            setParameters(context.mkParams().apply {
+                add("timeout", getInteger("${Z3SolvingPool::class.qualifiedName}.TimeoutMillis") ?: 5_000)
+            })
+        }
+    }
     
     private val inputExprs: Map<String, RealExpr> = z3 {
         //1: input bounds
@@ -155,104 +164,78 @@ class Z3SolvingPool private constructor(
     class UnsatisfiableConstraintsException(solver: String): RuntimeException(solver)
 
     override fun makeNewPointGeneration(pointCount: Int, existingPoints: ImmutableList<InputVector>): ImmutableList<InputVector> {
+        var pointCount = pointCount
 
         if(pointCount == 0) {
             trace { "asked SMT for 0 points" }
             return immutableListOf()
         }
+        if(existingPoints.isEmpty()){
+            trace { "configured SMT to attempt to generate a seed value" }
+            pointCount = pointCount.coerceAtLeast(1)
+        }
+
+        pointCount = pointCount.coerceAtMost(10)
+        //refuse to generate large batches since we're so slow
 
         solver.push()
 
-        try {
-            z3 {
+        // note: I'm intentionally not negating the existingPoints list.
+        // given that random sampling has succeeded, it completely floods the solver.
 
-                for((index, point)in existingPoints.withIndex()){
-                    //TODO: solver push-pop?
+        var resolved = solver.check()
 
-                    for((varName, existingValue) in point){
-
-                        solver.push()
-
-                        val prefix = "negate-seed-$index-$varName"
-                        val temp = z3.mkAnonRealConst(prefix)
-
-                        solver += (temp eq existingValue.zr) and (Real(varName) neq temp)
-
-                        val newSatState = solver.check()
-
-                        if(newSatState != Status.SATISFIABLE) {
-//                            fail; //yeah ok, so the problem is your strategy of negating a boundary of 0.0005 around the existing value
-                            // if the region is really small, then that negates the entire feasible region.
-                            // so, some things TODO:
-                            // 1. maybe add the flipping strategy, where we explicitly ask for "greater than" or "less than" values of existing seeds?
-                            // 2. whats the perofmrnace impact of calling check() this often? what about push/pop? should we be avoiding this?
-
-                            // ok, regarding number 1, heres my plan:
-                            // keep a "span pool", that is the map of variable to the extreema of its solved values.
-                            // and keep a coutn of "solved X1 by going lower" and "solved X1 by going higher"
-                            // then reset the solver, and when:
-                            //     case 1: count of solved-higher > count of solved-lower; must be less than extreema(x1).lower
-                            //     else : must be greater than extreema(x1).higher
-                            trace { "negation for $varName=$existingValue '$prefix' made constraint set $newSatState\n solver is:\n$solver" }
-                            solver.pop()
-                            break
-                        }
-                    }
-                }
-            }
-
-            var resolved = solver.check()
-
-            if (resolved == Status.UNSATISFIABLE) throw UnsatisfiableConstraintsException(solver.toString())
-
-            var model = solver.model
-            val seed = model.buildInputVector(inputs)
-
-            var results = immutableListOf(seed)
-
-            z3 {
-
-                // reminder: after solving, z3 will generate a function for input vars for solutions
-                // (eg decl-fun x3() = 37.5)
-                fun makeNegationOf(inputDecl: FuncDecl): BoolExpr{
-                    val value = model.getConstInterp(inputDecl) as ArithExpr
-
-                    val temp = z3.mkAnonRealConst("negate-prev-${inputDecl.name}")
-                    return (temp eq value) and (Real(inputDecl.name) neq temp)
-                }
-
-                for (index in 1 until pointCount) {
-
-                    //TODO: use a distence metric + optimization, rather than simple model subtraction.
-                    //or use a mkTupleSort? maybe just use an array?
-                    //  val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
-                    //  val p0 = ctx.mkConstDecl("p0", pointCtor)
-                    //  solver.add(ctx.mkEq(ctx.selec()))
-
-                    //negate
-                    solver += model.constDecls
-                        .filter { it.name.toString() in inputs.map { it.name } }
-                        .map { func -> makeNegationOf(func) }
-
-                    resolved = solver.check()
-                    if (resolved == Status.UNSATISFIABLE) {
-                        //likely our point negation strategy pushed us into UNSAT
-                        // TODO: we should be smarter about this, rather than negating blobs
-                        // why dont we play games with greater-than and less than?
-                        break
-                    }
-
-                    model = solver.model
-                    val nextResult = model.buildInputVector(inputs)
-
-                    results += nextResult
-                }
-
-                return results
-            }
-        }
-        finally {
+        if (resolved == Status.UNSATISFIABLE) throw UnsatisfiableConstraintsException(solver.toString())
+        if (resolved != Status.SATISFIABLE) {
+            trace { "solver state is now: $resolved, will pop and return empty list. Solver:\n$solver" }
             solver.pop()
+            return immutableListOf()
+        }
+
+        var model = solver.model
+        val seed = model.buildInputVector(inputs)
+
+        var results = immutableListOf(seed)
+
+        z3 {
+
+            // reminder: after solving, z3 will generate a function for input vars for solutions
+            // (eg decl-fun x3() = 37.5)
+            fun makeNegationOf(inputDecl: FuncDecl): BoolExpr{
+                val value = model.getConstInterp(inputDecl) as ArithExpr
+
+                val temp = z3.mkAnonRealConst("negate-prev-${inputDecl.name}")
+                return (temp eq value) and (Real(inputDecl.name) neq temp)
+            }
+
+            for (index in 1 until pointCount) {
+
+                //TODO: use a distence metric + optimization, rather than simple model subtraction.
+                //or use a mkTupleSort? maybe just use an array?
+                //  val pointCtor = ctx.mkDatatypeSort("point", arrayOf(ctx.mkConstructor("point", "point", arrayOf("x1"), arrayOf(ctx.mkRealSort()), null)))
+                //  val p0 = ctx.mkConstDecl("p0", pointCtor)
+                //  solver.add(ctx.mkEq(ctx.selec()))
+
+                //negate
+                solver += model.constDecls
+                    .filter { it.name.toString() in inputs.map { it.name } }
+                    .map { func -> makeNegationOf(func) }
+
+                resolved = solver.check()
+                if (resolved == Status.UNSATISFIABLE) {
+                    //likely our point negation strategy pushed us into UNSAT
+                    // TODO: we should be smarter about this, rather than negating blobs
+                    // why dont we play games with greater-than and less than?
+                    break
+                }
+
+                model = solver.model
+                val nextResult = model.buildInputVector(inputs)
+
+                results += nextResult
+            }
+
+            return results
         }
     }
 

@@ -7,7 +7,9 @@ inline fun <R> Context.configureReals(mutator: ContextConfigurator.() -> R): R =
 inline fun <R> Context.configure(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 inline operator fun <R> Context.invoke(mutator: ContextConfigurator.() -> R): R = ContextConfigurator(this).mutator()
 
-class ContextConfigurator(val z3: Context){
+class ContextConfigurator(private val z3: Context){
+
+    val context: Context get() = z3
 
     infix fun ArithExpr.gt(right: Int): BoolExpr = z3.mkGt(this, right.zr)
     infix fun ArithExpr.gte(right: Int): BoolExpr = z3.mkGe(this, right.zr)

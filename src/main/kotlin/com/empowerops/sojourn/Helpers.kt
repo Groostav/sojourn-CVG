@@ -1,14 +1,10 @@
 package com.empowerops.sojourn
 
 import com.empowerops.babel.BabelExpression
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.*
-import kotlin.system.measureNanoTime
+import kotlinx.collections.immutable.ImmutableList
 import kotlin.system.measureTimeMillis
 
 fun Double.isPassedConstraint(tolerance: Double = 0.0): Boolean = this <= 0.0 + tolerance
-
-const val NANOS_PER_MILLI = 1000 * 1000
 
 fun <R> measureTime(op: () -> R): Pair<Long, R> {
     var result: Any? = null
@@ -36,16 +32,3 @@ fun Iterable<BabelExpression>.passFor(inputs: InputVector, tolerance: Double = 0
 
 fun BabelExpression.passesFor(inputs: InputVector, tolerance: Double = 0.0)
         = evaluate(inputs).isPassedConstraint(tolerance)
-
-val InputVector.distance: Double get() = Math.sqrt(values.sumByDouble { Math.pow(it, 2.0) })
-
-
-inline fun <K, V, R> ImmutableMap<K, V>.mapValues(transform: (K, V) -> R): ImmutableMap<K, R> {
-    val result = immutableHashMapOf<K, R>().builder()
-
-    for((key, value) in this){
-        result += key to transform(key, value)
-    }
-
-    return result.build()
-}
