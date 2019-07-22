@@ -6,10 +6,12 @@ import com.microsoft.z3.Status
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.immutableListOf
 import kotlinx.collections.immutable.plus
-import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.first
 import kotlinx.coroutines.channels.produce
+import kotlinx.coroutines.selects.select
 import java.text.DecimalFormat
 import java.util.*
 
@@ -20,6 +22,11 @@ val SOLUTION_PAGE_SIZE = 10_000
 val EASY_PATH_THRESHOLD_FACTOR = 0.1
 val WARMUP_ROUNDS = 10
 
+private data class DependencyGroup(var deps: Set<String>, var constraints: Set<BabelExpression>) {
+    override fun toString(): String = "DependencyGroup(deps=$deps, constraints={${constraints.joinToString { it.expressionLiteral }}})"
+}
+
+
 fun CoroutineScope.makeSampleAgent(
     inputs: List<InputVariable>,
     targetPointCount: Int,
@@ -27,6 +34,94 @@ fun CoroutineScope.makeSampleAgent(
     seeds: ImmutableList<InputVector> = immutableListOf(),
     samplerSeed: Random = Random(),
     improverSeed: Random = Random()
+): ReceiveChannel<Generation> {
+
+    inputs.duplicates().let { require(it.isEmpty()) { "duplicate inputs: $it" } }
+
+    val dependencyGroups = mutableListOf<DependencyGroup>()
+
+    for(constraint in constraints){
+        if(constraint.containsDynamicLookup){
+            //only the global group can solve for this one
+            continue
+        }
+
+        val merging = constraint.staticallyReferencedSymbols.flatMap { varName ->
+            dependencyGroups.filter { varName in it.deps }
+        }
+
+        when(merging.size) {
+            0 -> dependencyGroups += DependencyGroup(constraint.staticallyReferencedSymbols, setOf(constraint))
+            1 -> merging.single().apply {
+                this.deps += constraint.staticallyReferencedSymbols
+                this.constraints += constraint
+            }
+            else -> {
+                val receiver = merging.first()
+                receiver.apply {
+                    this.deps += constraint.staticallyReferencedSymbols
+                    this.constraints += constraint
+                }
+                val deletions = merging.drop(1)
+                for(deletion in deletions){
+                    receiver.deps += deletion.deps
+                    receiver.constraints += deletion.constraints
+                    dependencyGroups -= deletion
+                }
+            }
+        }
+    }
+
+    trace {
+        "found groups ${dependencyGroups.joinToString()}"
+    }
+
+    val globalGroup = startAgent(inputs, constraints, samplerSeed, improverSeed, targetPointCount, seeds)
+
+    fail;//blargwargl, this isnt easy.
+    
+//    when(dependencyGroups.size) {
+//        1 -> {
+//            require(dependencyGroups.single().deps == inputs.map { it.name }.toSet())
+            return globalGroup
+//        }
+//        else -> {
+//
+//             TODO: it might make more sense to create a kind of composite constraint solving pool,
+//             the reason being is that we can then use the same load balancing as previous
+
+//            val parts = dependencyGroups.map {group ->
+//                startAgent(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, targetPointCount, seeds)
+//            }
+//
+//            return produce {
+//
+//                launch {
+//                    globalGroup.consumeEach { send(it) }
+//                }
+//                while(isActive){
+//                    val partResults = parts.map { it.receive() }
+//
+//                    val generation = Generation(
+//                        partResults.first().satisfiable,
+//                        TODO()
+//                    )
+//                }
+//            }
+//        }
+//    }
+}
+
+private fun <T> List<T>.duplicates(): List<T> =
+    groupBy { it }.filter { it.value.size >= 2 }.flatMap { it.value }
+
+private fun CoroutineScope.startAgent(
+    inputs: List<InputVariable>,
+    constraints: Collection<BabelExpression>,
+    samplerSeed: Random,
+    improverSeed: Random,
+    targetPointCount: Int,
+    seeds: ImmutableList<InputVector>
 ) = produce<Generation>(Dispatchers.Default) {
 
     val fairSampler = RandomSamplingPool.create(inputs, constraints)
@@ -34,7 +129,7 @@ fun CoroutineScope.makeSampleAgent(
     val improover = RandomBoundedWalkingImproverPool.Factory(improverSeed).create(inputs, constraints)
     val smt = Z3SolvingPool.create(inputs, constraints)
 
-    if(smt.check() == Status.UNSATISFIABLE){
+    if (smt.check() == Status.UNSATISFIABLE) {
         trace { "unsat" }
         send(Generation(Satisfiability.UNSATISFIABLE, immutableListOf()))
         return@produce
@@ -43,14 +138,14 @@ fun CoroutineScope.makeSampleAgent(
     val initialRoundTarget = targetPointCount.coerceAtMost(SOLUTION_PAGE_SIZE)
     val initialResults = fairSampler.makeNewPointGeneration(initialRoundTarget, seeds)
 
-    trace { "initial-sampling gen hit ${ ((100.0 * initialResults.size) / initialRoundTarget).toInt()}%" }
+    trace { "initial-sampling gen hit ${((100.0 * initialResults.size) / initialRoundTarget).toInt()}%" }
 
     when {
         initialResults.size > EASY_PATH_THRESHOLD_FACTOR * initialRoundTarget -> {
             trace { "easy" }
 
             var results = initialResults
-            while(results.size < targetPointCount){
+            while (results.size < targetPointCount) {
                 results += fairSampler.makeNewPointGeneration(targetPointCount - results.size, results + seeds)
             }
 
@@ -59,20 +154,20 @@ fun CoroutineScope.makeSampleAgent(
         else -> {
             trace { "balancing" }
 
-            var nextRoundTarget = targetPointCount.coerceIn(1 .. SOLUTION_PAGE_SIZE)
+            var nextRoundTarget = targetPointCount.coerceIn(1..SOLUTION_PAGE_SIZE)
 
             var pool = seeds + initialResults
             var publishedPoints = immutableListOf<InputVector>()
 
             var targets = listOf(fairSampler, adaptiveSampler, improover)
-                .associate { it to nextRoundTarget / 3}
+                .associate { it to nextRoundTarget / 3 }
                 .let { it + (smt to 5) }
 
             var roundNo = 1
 
             val inputNames = inputs.map { it.name }
 
-            while(publishedPoints.size < targetPointCount) try {
+            while (publishedPoints.size < targetPointCount) try {
 
                 trace {
                     "round start: target=$nextRoundTarget, " +
@@ -85,12 +180,12 @@ fun CoroutineScope.makeSampleAgent(
                             val (time, pts) = measureTime { solver.makeNewPointGeneration(target, pool) }
                             val (centroid, variance) = findDispersion(inputNames, pts)
 
-                            PoolResult(time, pts, centroid, variance.takeIf { ! it.isNaN() } ?: 0.0)
+                            PoolResult(time, pts, centroid, variance.takeIf { !it.isNaN() } ?: 0.0)
                         }
                     }
 
                 val results: Map<ConstraintSolvingPool, PoolResult> = resultsAsync
-                        .mapValues { (_, deferred) -> deferred.await() }
+                    .mapValues { (_, deferred) -> deferred.await() }
 
                 val overheadStartTime = System.currentTimeMillis()
 
@@ -106,24 +201,25 @@ fun CoroutineScope.makeSampleAgent(
                             "got=${newQualityResults.size}, " +
                             "dispersion=${dispersion.variance} " +
                             results.entries.joinToString { (solver, result) ->
-                                "${solver.name}(${result.points.size}, ${TwoSigFigs.format(result.timeMillis)}ms, v=${TwoSigFigsWithE.format(result.variance)})"
+                                "${solver.name}(${result.points.size}, ${TwoSigFigs.format(result.timeMillis)}ms, v=${TwoSigFigsWithE.format(
+                                    result.variance
+                                )})"
                             }
                 }
 
-                if(newQualityResults.isEmpty()){
+                if (newQualityResults.isEmpty()) {
                     trace { "no-yards!!" }
                 }
 
-                if(roundNo > WARMUP_ROUNDS) {
+                if (roundNo > WARMUP_ROUNDS) {
                     val toPublish = newQualityResults.takeLast(targetPointCount - publishedPoints.size)
                     send(Generation(Satisfiability.SATISFIABLE, toPublish))
                     publishedPoints += newQualityResults
-                }
-                else trace { "dropped ${newQualityResults.size} pts on warmup round $roundNo" }
+                } else trace { "dropped ${newQualityResults.size} pts on warmup round $roundNo" }
 
                 nextRoundTarget = when {
                     roundNo < WARMUP_ROUNDS -> SOLUTION_PAGE_SIZE
-                    else -> (targetPointCount - publishedPoints.size).coerceIn(1 .. SOLUTION_PAGE_SIZE)
+                    else -> (targetPointCount - publishedPoints.size).coerceIn(1..SOLUTION_PAGE_SIZE)
                 }
 
                 // we balance on performance, unless any pool has a variance significantly worse than the others,
@@ -145,20 +241,18 @@ fun CoroutineScope.makeSampleAgent(
                     val minimumVarianceParticipation = 1.0 / (targets.size * 2)
 
                     val thisPoolVariance = results.getValue(pool).variance
-                    if (thisPoolVariance / varianceSum < minimumVarianceParticipation){
-                        if(previousTargets.getValue(pool) != 0){
-                            trace { "dropped execution of ${pool.name} as its variance was $thisPoolVariance (average is $varianceAverage)"}
+                    if (thisPoolVariance / varianceSum < minimumVarianceParticipation) {
+                        if (previousTargets.getValue(pool) != 0) {
+                            trace { "dropped execution of ${pool.name} as its variance was $thisPoolVariance (average is $varianceAverage)" }
                         }
                         0
-                    }
-                    else previousTime
+                    } else previousTime
                 }
 
                 trace {
                     "overhead: ${System.currentTimeMillis() - overheadStartTime}ms"
                 }
-            }
-            finally {
+            } finally {
                 roundNo += 1
             }
         }

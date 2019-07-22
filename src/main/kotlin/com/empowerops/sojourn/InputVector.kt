@@ -98,7 +98,7 @@ class InputVector : Map<String, Double> {
 
 
     infix fun vecPlus(right: InputVector): InputVector {
-        require(keys == right.keys)
+        require(keys == right.keys) { "key miss-match: left=$keys, right=${right.keys}"}
 
         val result = InputVector(_keys)
 

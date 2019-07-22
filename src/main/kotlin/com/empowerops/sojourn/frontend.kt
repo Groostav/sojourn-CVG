@@ -22,31 +22,36 @@ fun main(args: Array<String>) = runBlocking<Unit> {
     }
     else 10
 
-    val expr = exprArgs.joinToString(" ")
+    val exprs = exprArgs.joinToString(" ").split("&&").map { it.trim() }
 
-    val compiled = BabelCompiler().compile(expr)
+    val compiler = BabelCompiler()
 
-    when(compiled){
-        is CompilationFailure -> {
-            println("compilation failure: ${compiled.problems.joinToString("\n")}")
-            return@runBlocking
-        }
-        is BabelExpression -> {
+    val compiled = exprs.map { compiler.compile(it) }
 
-            val inputs = compiled.staticallyReferencedSymbols.map {
-                InputVariable(it, 0.0, 1.0)
+    val inputs = compiled.flatMap { compileResult ->
+        when(compileResult){
+            is CompilationFailure -> {
+                println("compilation failure: ${compileResult.problems.joinToString("\n")}")
+                return@runBlocking
             }
-            val sampleStream = makeSampleAgent(
-                inputs,
-                targetPointCount,
-                setOf(compiled)
-            )
-
-            for(generation in sampleStream){
-                //TODO: this basic logging scheme is quickly becoming a problem. need to make this nice.
-                println("${generation.satisfiable}")
-                generation.values.forEach { println(it.toString()) }
+            is BabelExpression -> {
+                compileResult.staticallyReferencedSymbols.map {
+                    InputVariable(it, 0.0, 1.0)
+                }
             }
         }
+    }.distinct()
+
+    val sampleStream = makeSampleAgent(
+        inputs,
+        targetPointCount,
+        compiled.filterIsInstance<BabelExpression>()
+    )
+
+    for(generation in sampleStream){
+        //TODO: this basic logging scheme is quickly becoming a problem. need to make this nice.
+        println("${generation.satisfiable}")
+        generation.values.forEach { println(it.toString()) }
     }
+
 }
