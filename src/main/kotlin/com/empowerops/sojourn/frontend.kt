@@ -5,7 +5,7 @@ import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
 import kotlinx.coroutines.runBlocking
 
-suspend fun main(args: Array<String>) = runBlocking<Unit> {
+fun main(args: Array<String>) = runBlocking<Unit> {
 
     // TODO i would really prefer to use a library for this...
     // why not getoptk you dingus?

@@ -5,7 +5,7 @@ import kotlinx.collections.immutable.ImmutableList
 
 //typealias InputVector = ImmutableMap<String, Double>
 
-data class InputVariable(val name: String, val lowerBound: Double, val upperBound: Double)
+data class InputVariable(val name: String, val lowerBound: Double, val upperBound: Double, val stepsize: Double = 0.0)
 
 interface ConstraintSolvingPoolFactory {
     fun create(inputSpec: List<InputVariable>, constraints: Collection<BabelExpression>): ConstraintSolvingPool
