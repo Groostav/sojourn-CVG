@@ -1,6 +1,7 @@
 package com.empowerops.sojourn
 
 import kotlinx.collections.immutable.immutableListOf
+import kotlinx.coroutines.channels.first
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.testng.annotations.Test
@@ -11,7 +12,9 @@ class IntegrationTests {
     @Test fun `when calling front-end on P118`() = runBlocking {
 
         val time = measureTimeMillis {
-            val (sat, results) = P118.run { makeSamples(inputs, 20_000, constraints, immutableListOf()) }
+            val (sat, results) = P118.run {
+                makeSampleAgent(inputs, 20_000, constraints, immutableListOf()).first()
+            }
 
             assertThat(sat).isEqualTo(Satisfiability.SATISFIABLE)
             assertThat(results.size).isEqualTo(20_000)

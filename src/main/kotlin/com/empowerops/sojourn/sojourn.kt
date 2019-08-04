@@ -89,14 +89,25 @@ fun CoroutineScope.makeSampleAgent(
 //             TODO: it might make more sense to create a kind of composite constraint solving pool,
 //             the reason being is that we can then use the same load balancing as previous
 
-            val parts = dependencyGroups.map {group ->
-                startAgent(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, targetPointCount, seeds)
+            val parts = dependencyGroups.associate { group ->
+                group to startAgent(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, targetPointCount, seeds)
             }
 
             return globalGroup + produce {
                 while(isActive){
-                    val partResults = parts.map { it.receive() }
+                    val partsByName = parts.mapValues { (group, channel) -> channel.receiveOrNull() }
 
+                    if(null in partsByName.values){
+                        val extras = partsByName .filterValues { it != null }
+                        if(extras.any()) trace {
+                            val names = partsByName.entries.joinToString { (group, gen) -> "${group.deps}->${gen?.let { "gen" } ?: "null" }" }
+                            "one or more dependency groups quit while one or more produced more results: $names"
+                        }
+
+                        return@produce
+                    }
+
+                    val partResults = partsByName.values.map { requireNotNull(it) }
                     val minLength = partResults.minBy { it.values.size }!!.values.size
                     val maxLength = partResults.maxBy { it.values.size }!!.values.size
 
@@ -120,7 +131,7 @@ fun CoroutineScope.makeSampleAgent(
     }
 }
 
-@InternalCoroutinesApi
+@UseExperimental(InternalCoroutinesApi::class)
 operator fun <T> ReceiveChannel<T>.plus(right: ReceiveChannel<T>) = GlobalScope.produce<T>(onCompletion = { cancel(); right.cancel() }) {
     val left = this@plus
     while(isActive){
@@ -169,6 +180,7 @@ private fun CoroutineScope.startAgent(
     seeds: ImmutableList<InputVector>
 ) = produce<Generation>(Dispatchers.Default) {
 
+    val inputNames = inputs.map { it.name }
     val fairSampler = RandomSamplingPool.create(inputs, constraints)
     val adaptiveSampler = RandomSamplingPool.Factory(samplerSeed, true).create(inputs, constraints)
     val improover = RandomBoundedWalkingImproverPool.Factory(improverSeed).create(inputs, constraints)
@@ -187,7 +199,7 @@ private fun CoroutineScope.startAgent(
 
     when {
         initialResults.size > EASY_PATH_THRESHOLD_FACTOR * initialRoundTarget -> {
-            trace { "easy" }
+            trace { "easy: $inputNames" }
 
             var results = initialResults
             while (results.size < targetPointCount) {
@@ -197,7 +209,7 @@ private fun CoroutineScope.startAgent(
             send(Generation(Satisfiability.SATISFIABLE, results))
         }
         else -> {
-            trace { "balancing" }
+            trace { "balancing: $inputNames" }
 
             var nextRoundTarget = targetPointCount.coerceIn(1..SOLUTION_PAGE_SIZE)
 
@@ -302,17 +314,6 @@ private fun CoroutineScope.startAgent(
             }
         }
     }
-}
-
-suspend fun makeSamples(
-        inputs: List<InputVariable>,
-        targetPointCount: Int,
-        constraints: Collection<BabelExpression>,
-        seeds: ImmutableList<InputVector> = immutableListOf(),
-        samplerSeed: Random = Random(),
-        improverSeed: Random = Random()
-): Generation = runBlocking {
-    makeSampleAgent(inputs, targetPointCount, constraints, seeds, samplerSeed, improverSeed).first()
 }
 
 data class PoolResult(val timeMillis: Long, val points: List<InputVector>, val centroid: InputVector, val variance: Double)
