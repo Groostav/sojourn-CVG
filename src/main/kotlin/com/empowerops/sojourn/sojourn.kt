@@ -280,8 +280,16 @@ private fun CoroutineScope.startAgentGroup(
                     // then we avoid that pool
 
                     val speedSum = results.values.sumByDouble { (t, pts, _, _) -> 1.0 * pts.size / t }
+
                     targets = results.mapValues { (pool, result) ->
                         val speed = 1.0 * result.points.size / result.timeMillis
+                        fail;// ok, running with 'x1 < 0.0001^(x2+1)' scares me
+                        // notice that the improver offers a much higher variance
+                        // but we still pick the adaptive sampler, which doenst appear to be adapting very well.
+                        // hmm.
+                        // i think that we should actually just publish results from the pool with the highest variance
+                        // also, as another feature, the adaptive random sampling pool could "split" into multiple pools,
+                        // if it is able to detect invalid regions.... does that work at 100 vars?
                         (SOLUTION_PAGE_SIZE * speed / speedSum).toInt()
                     }
 
