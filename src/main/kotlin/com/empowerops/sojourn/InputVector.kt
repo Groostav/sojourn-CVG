@@ -42,15 +42,51 @@ import java.util.AbstractMap
 inline fun Map<String, Double>.toInputVector() = InputVector(this)
 inline fun List<Pair<String, Double>>.toInputVector() = InputVector(this)
 
+
+fun InputVector(vararg values: Pair<String, Double>) = InputVector(
+    keys = Array<String>(values.size) { values[it].first },
+    values = DoubleArray(values.size) { values[it].second }
+)
+@JvmName("InputVector_fromPairs")
+fun InputVector(values: List<Pair<String, Double>>) = InputVector(
+    keys = Array<String>(values.size) { values[it].first },
+    values = DoubleArray(values.size) { values[it].second }
+)
+@JvmName("InputVector_fromMapEntries")
+fun InputVector(values: List<Map.Entry<String, Double>>) = InputVector (
+    keys = Array<String>(values.size) { values[it].key },
+    values = DoubleArray(values.size) { values[it].value }
+)
+
+fun InputVector(valuesByName: Map<String, Double>): InputVector {
+    val keys = Array<String>(valuesByName.size){ "" }
+    val values = DoubleArray(valuesByName.size)
+
+    var index = 0
+    for((key, value) in valuesByName){
+        keys[index] = key
+        values[index] = value
+        index += 1
+    }
+
+    return InputVector(keys, values)
+}
+
+
 class InputVector : Map<String, Double> {
 
     companion object {
 //        val EMPTY: InputVector = InputVector(keys = TreeSet())
     }
 
-    //TODO: this should be backed by some kind of LinkedNavigableSet,
-    // it would mean one less object allocation, and we'd get the (expected) keys.contains() behaviour to be fast.
-    // in the mean time, the jvm's behaviour of
+    // TODO hmm.
+    // what is the best thing to do for performance here?
+    // I dont really want to allocate a million different string arrays that all contain the same info
+    // but I also really like the convienience of creating InputVector instances that arent tied to a parent matrix.
+    // could use a constant-pool strategy. That would likely avoid the extra allocations.
+    // yeah... use something from java util collections that has fast contains and fast index of?
+    // pcollections... or kotlinx immutable collections (Q_Q) could have it.
+
     private val _keys: Array<String>
     private val _values: DoubleArray
 
@@ -58,29 +94,13 @@ class InputVector : Map<String, Double> {
     private var __values: List<Double>? = null
     private var _entries: EntrySet? = null
 
+    internal constructor(keys: Array<String>, values: DoubleArray){
+        _keys = keys
+        _values = values
+    }
     private constructor(keys: Array<String>){
         _keys = keys
         _values = DoubleArray(keys.size)
-    }
-
-    constructor(vararg values: Pair<String, Double>){
-        _keys = Array<String>(values.size) { values[it].first }
-        _values = DoubleArray(values.size) { values[it].second }
-    }
-    constructor(values: List<Pair<String, Double>>){
-        _keys = Array<String>(values.size) { values[it].first }
-        _values = DoubleArray(values.size) { values[it].second }
-    }
-    constructor(values: Map<String, Double>) {
-        _keys = Array<String>(values.size){ "" }
-        _values = DoubleArray(values.size)
-
-        var index = 0
-        for((key, value) in values){
-            _keys[index] = key
-            _values[index] = value
-            index += 1
-        }
     }
 
     override val size: Int get() = keys.size

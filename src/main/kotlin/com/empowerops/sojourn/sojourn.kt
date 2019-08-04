@@ -8,12 +8,13 @@ import kotlinx.collections.immutable.immutableListOf
 import kotlinx.collections.immutable.plus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.channels.first
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.selects.select
+import java.lang.IndexOutOfBoundsException
 import java.text.DecimalFormat
 import java.util.*
+import kotlin.NoSuchElementException
 
 enum class Satisfiability { SATISFIABLE, UNSATISFIABLE, UNKNOWN }
 data class Generation(val satisfiable: Satisfiability, val values: List<InputVector>)
@@ -78,38 +79,82 @@ fun CoroutineScope.makeSampleAgent(
 
     val globalGroup = startAgent(inputs, constraints, samplerSeed, improverSeed, targetPointCount, seeds)
 
-    fail;//blargwargl, this isnt easy.
-    
-//    when(dependencyGroups.size) {
-//        1 -> {
-//            require(dependencyGroups.single().deps == inputs.map { it.name }.toSet())
+    when(dependencyGroups.size) {
+        1 -> {
+            require(dependencyGroups.single().deps == inputs.map { it.name }.toSet())
             return globalGroup
-//        }
-//        else -> {
-//
+        }
+        else -> {
+
 //             TODO: it might make more sense to create a kind of composite constraint solving pool,
 //             the reason being is that we can then use the same load balancing as previous
 
-//            val parts = dependencyGroups.map {group ->
-//                startAgent(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, targetPointCount, seeds)
-//            }
-//
-//            return produce {
-//
-//                launch {
-//                    globalGroup.consumeEach { send(it) }
-//                }
-//                while(isActive){
-//                    val partResults = parts.map { it.receive() }
-//
-//                    val generation = Generation(
-//                        partResults.first().satisfiable,
-//                        TODO()
-//                    )
-//                }
-//            }
-//        }
-//    }
+            val parts = dependencyGroups.map {group ->
+                startAgent(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, targetPointCount, seeds)
+            }
+
+            return globalGroup + produce {
+                while(isActive){
+                    val partResults = parts.map { it.receive() }
+
+                    val minLength = partResults.minBy { it.values.size }!!.values.size
+                    val maxLength = partResults.maxBy { it.values.size }!!.values.size
+
+                    if(maxLength != minLength) trace {
+                        "partwise system lost data: smallest was $minLength, largest was $maxLength"
+                    }
+
+                    val partPoints = partResults
+                        .map { it.values.take(minLength).also { require(it.size == minLength) } }
+
+                    val rows = partPoints.asTransposedRegular().map { rowElements ->
+                        InputVector(rowElements.flatMap { it.entries })
+                    }
+
+                    val generation = Generation(partResults.first().satisfiable, rows)
+
+                    send(generation)
+                }
+            }
+        }
+    }
+}
+
+@InternalCoroutinesApi
+operator fun <T> ReceiveChannel<T>.plus(right: ReceiveChannel<T>) = GlobalScope.produce<T>(onCompletion = { cancel(); right.cancel() }) {
+    val left = this@plus
+    while(isActive){
+        val next = select<T> {
+            if(! left.isClosedForReceive) left.onReceive { it }
+            if(! right.isClosedForReceive) right.onReceive { it }
+        }
+        send(next)
+
+        if(left.isClosedForReceive && right.isClosedForReceive) break
+    }
+}
+
+fun <T> List<List<T>>.asTransposedRegular(): List<List<T>> = object: AbstractList<List<T>>() {
+
+    //in outputs terms
+    val columns = this@asTransposedRegular
+
+    init {
+        require(columns.isEmpty() || columns.map { it.size }.distinct().size == 1)
+    }
+
+    val rowCount = columns.firstOrNull()?.size ?: 0
+    val colCount = columns.size
+
+    override fun get(rowIndex: Int): AbstractList<T> {
+        if(rowIndex < 0 || rowIndex >= rowCount) throw IndexOutOfBoundsException("rowIndex=$rowIndex in matrix with $rowCount rows")
+        return object: AbstractList<T>() {
+            override fun get(columnIndex: Int): T = columns[columnIndex][rowIndex]
+            override val size: Int get() = colCount
+        }
+    }
+
+    override val size get() = rowCount
 }
 
 private fun <T> List<T>.duplicates(): List<T> =
