@@ -10,6 +10,7 @@ import org.antlr.v4.runtime.tree.TerminalNode
 import java.util.*
 import java.util.stream.Stream
 import java.lang.Integer.getInteger
+import java.lang.UnsupportedOperationException
 
 class Z3SolvingPool private constructor(
     //todo: replace me with Map<String, InputVariable>
@@ -138,10 +139,16 @@ class Z3SolvingPool private constructor(
         require(solver.check() == Status.SATISFIABLE) { "before adding constraints solver SAT is ${solver.check()}:\n $solver " }
 
         //2: transcode constraint expressions
-        constraints.forEach { constraint ->
+        for(constraint in constraints){
 
             val transcoder = BabelZ3TranscodingWalker()
-            recompiler.compile(constraint.expressionLiteral, transcoder)
+            try {
+                recompiler.compile(constraint.expressionLiteral, transcoder)
+            }
+            catch(ex: UnsupportedOperationException){
+                trace { "failed to transcode '${constraint.expressionLiteral}', will be skipped" }
+                continue
+            }
 
             transcoder.requirements.forEach { transcodedConstraintPart ->
                 solver.push()
@@ -261,7 +268,7 @@ class Z3SolvingPool private constructor(
                         ctx.gteq() != null -> left gt right
                         ctx.lteq() != null -> left lt right
 
-                        else -> TODO("unknown: ${ctx.text}")
+                        else -> transcodeFailure("unknown: ${ctx.text}")
                     }
                 }
                 ctx.eq() != null -> {
@@ -275,7 +282,7 @@ class Z3SolvingPool private constructor(
 
                     requirements += (leftSym gte rightSym - offsetSym) and (leftSym lte rightSym + offsetSym)
                 }
-                else -> TODO("unknown: ${ctx.text}")
+                else -> transcodeFailure("unknown: ${ctx.text}")
             }
         }
 
@@ -423,7 +430,7 @@ class Z3SolvingPool private constructor(
 
                             sinned
                         }
-                        else -> TODO("not implemented: $operatorText")
+                        else -> transcodeFailure("not implemented: $operatorText")
                     }
 
                     result
@@ -442,10 +449,10 @@ class Z3SolvingPool private constructor(
                             mkModAxioms(left, right)
                             mod(left, right)
                         }
-                        else -> TODO()
+                        else -> transcodeFailure("${ctx[1]}")
                     }
                 }
-                else -> TODO("op for ${ctx.text}")
+                else -> transcodeFailure("op for ${ctx.text}")
             }
 
             appendInstruction(transcoded)
@@ -480,7 +487,7 @@ class Z3SolvingPool private constructor(
                 null -> { }
                 is ArithExpr -> exprs.push(transcoded)
                 is BoolExpr -> requirements += transcoded
-                else -> TODO()
+                else -> transcodeFailure("$transcoded")
             }
         }
 
@@ -492,12 +499,12 @@ class Z3SolvingPool private constructor(
             exprs.push(when {
                 ctx.FLOAT() != null -> z3.mkReal(ctx.FLOAT().text)
                 ctx.INTEGER() != null -> z3.mkReal(ctx.INTEGER().text)
-                ctx.CONSTANT() != null -> when(ctx.text.toLowerCase()){
+                ctx.CONSTANT() != null -> when(val text = ctx.text.toLowerCase()){
                     "pi" -> PI
                     "e" -> E
-                    else -> TODO()
+                    else -> transcodeFailure("constant $text")
                 }
-                else -> TODO()
+                else -> transcodeFailure("constant ${ctx.text}")
             })
         }
 
@@ -519,7 +526,7 @@ private fun Model.buildInputVector(inputs: List<InputVariable>): InputVector {
                 val decimal = when (interp) {
                     is RatNum -> interp.numerator.bigInteger.toDouble() / interp.denominator.bigInteger.toDouble()
                     is IntNum -> interp.bigInteger.toDouble()
-                    else -> TODO("cant decode interp $interp")
+                    else -> transcodeFailure("cant decode interp $interp")
                 }
                 it.first to decimal
             }
@@ -537,3 +544,5 @@ private var tempId: Int = 0
 
 private fun Context.mkAnonRealConst(prefix: String = ""): RealExpr = mkRealConst("${if(prefix != "") "$prefix-" else ""}temp-${tempId++}")
 private fun Context.mkAnonIntConst(prefix: String = ""): IntExpr = mkIntConst("${if(prefix != "") "$prefix-" else ""}temp-${tempId++}")
+
+private fun transcodeFailure(message: String): Nothing= throw UnsupportedOperationException(message)

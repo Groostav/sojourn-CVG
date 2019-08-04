@@ -28,6 +28,7 @@ fun main(args: Array<String>) = runBlocking<Unit> {
     val compiler = BabelCompiler()
 
     val compiled = exprs.map { compiler.compile(it) }
+    val constraints = compiled.filterIsInstance<BabelExpression>()
 
     val inputs = compiled.flatMap { compileResult ->
         when(compileResult){
@@ -43,16 +44,13 @@ fun main(args: Array<String>) = runBlocking<Unit> {
         }
     }.distinct()
 
-    val sampleStream = makeSampleAgent(
-        inputs,
-        compiled.filterIsInstance<BabelExpression>()
-    )
+    val sampleStream = makeSampleAgent(inputs, constraints)
 
     when(sampleStream){
         is Satisfied -> {
             println("SATISFIED")
             for(it in sampleStream.results.take(targetPointCount)){
-                println(it)
+                println("$it (PASS=${constraints.passFor(it)})")
             }
         }
         is Unsatisfiable -> {
