@@ -8,34 +8,31 @@ import kotlinx.collections.immutable.immutableListOf
 import kotlinx.collections.immutable.plus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.first
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.selects.select
 import java.lang.IndexOutOfBoundsException
 import java.text.DecimalFormat
 import java.util.*
-import kotlin.NoSuchElementException
-
-enum class Satisfiability { SATISFIABLE, UNSATISFIABLE, UNKNOWN }
-data class Generation(val satisfiable: Satisfiability, val values: List<InputVector>)
 
 val SOLUTION_PAGE_SIZE = 10_000
 val EASY_PATH_THRESHOLD_FACTOR = 0.1
-val WARMUP_ROUNDS = 10
+val WARMUP_ROUNDS = 5
 
 private data class DependencyGroup(var deps: Set<String>, var constraints: Set<BabelExpression>) {
     override fun toString(): String = "DependencyGroup(deps=$deps, constraints={${constraints.joinToString { it.expressionLiteral }}})"
 }
 
+sealed class ConstraintAnalysis
+class Satisfied(val results: ReceiveChannel<InputVector>): ConstraintAnalysis(), ReceiveChannel<InputVector> by results
+object Unsatisfiable: ConstraintAnalysis()
 
 fun CoroutineScope.makeSampleAgent(
     inputs: List<InputVariable>,
-    targetPointCount: Int,
     constraints: Collection<BabelExpression>,
     seeds: ImmutableList<InputVector> = immutableListOf(),
     samplerSeed: Random = Random(),
     improverSeed: Random = Random()
-): ReceiveChannel<Generation> {
+): ConstraintAnalysis {
 
     inputs.duplicates().let { require(it.isEmpty()) { "duplicate inputs: $it" } }
 
@@ -77,12 +74,14 @@ fun CoroutineScope.makeSampleAgent(
         "found groups ${dependencyGroups.joinToString()}"
     }
 
-    val globalGroup = startAgent(inputs, constraints, samplerSeed, improverSeed, targetPointCount, seeds)
+    val globalGroup = startAgentGroup(inputs, constraints, samplerSeed, improverSeed, seeds)
+
+    if(globalGroup == null) return Unsatisfiable
 
     when(dependencyGroups.size) {
         1 -> {
             require(dependencyGroups.single().deps == inputs.map { it.name }.toSet())
-            return globalGroup
+            return Satisfied(globalGroup)
         }
         else -> {
 
@@ -90,43 +89,37 @@ fun CoroutineScope.makeSampleAgent(
 //             the reason being is that we can then use the same load balancing as previous
 
             val parts = dependencyGroups.associate { group ->
-                group to startAgent(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, targetPointCount, seeds)
+                group to startAgentGroup(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, seeds)!!
             }
 
-            return globalGroup + produce {
-                while(isActive){
-                    val partsByName = parts.mapValues { (group, channel) -> channel.receiveOrNull() }
+            return Satisfied(globalGroup + produce<InputVector> {
+                try {
+                    while (isActive) {
 
-                    if(null in partsByName.values){
-                        val extras = partsByName .filterValues { it != null }
-                        if(extras.any()) trace {
-                            val names = partsByName.entries.joinToString { (group, gen) -> "${group.deps}->${gen?.let { "gen" } ?: "null" }" }
-                            "one or more dependency groups quit while one or more produced more results: $names"
+                        val pointsBySource = parts.mapValues { (_, channel) ->
+                            channel.receiveOrNull()
                         }
 
-                        return@produce
+                        if (null in pointsBySource.values) {
+                            val extras = pointsBySource.filterValues { it != null }
+                            if (extras.any()) trace {
+                                val names = pointsBySource.entries.joinToString { (group, pt) ->
+                                    "${group.deps}->${pt?.let { "pt" } ?: "null"}"
+                                }
+                                "one or more dependency groups quit while one or more produced more results: $names"
+                            }
+
+                            return@produce
+                        }
+
+                        send(InputVector(pointsBySource.values.flatMap { it!!.entries }))
                     }
-
-                    val partResults = partsByName.values.map { requireNotNull(it) }
-                    val minLength = partResults.minBy { it.values.size }!!.values.size
-                    val maxLength = partResults.maxBy { it.values.size }!!.values.size
-
-                    if(maxLength != minLength) trace {
-                        "partwise system lost data: smallest was $minLength, largest was $maxLength"
-                    }
-
-                    val partPoints = partResults
-                        .map { it.values.take(minLength).also { require(it.size == minLength) } }
-
-                    val rows = partPoints.asTransposedRegular().map { rowElements ->
-                        InputVector(rowElements.flatMap { it.entries })
-                    }
-
-                    val generation = Generation(partResults.first().satisfiable, rows)
-
-                    send(generation)
                 }
-            }
+                finally {
+                    globalGroup.cancel()
+                    parts.values.forEach { it.cancel() }
+                }
+            })
         }
     }
 }
@@ -171,14 +164,13 @@ fun <T> List<List<T>>.asTransposedRegular(): List<List<T>> = object: AbstractLis
 private fun <T> List<T>.duplicates(): List<T> =
     groupBy { it }.filter { it.value.size >= 2 }.flatMap { it.value }
 
-private fun CoroutineScope.startAgent(
+private fun CoroutineScope.startAgentGroup(
     inputs: List<InputVariable>,
     constraints: Collection<BabelExpression>,
     samplerSeed: Random,
     improverSeed: Random,
-    targetPointCount: Int,
     seeds: ImmutableList<InputVector>
-) = produce<Generation>(Dispatchers.Default) {
+): ReceiveChannel<InputVector>? {
 
     val inputNames = inputs.map { it.name }
     val fairSampler = RandomSamplingPool.create(inputs, constraints)
@@ -188,129 +180,122 @@ private fun CoroutineScope.startAgent(
 
     if (smt.check() == Status.UNSATISFIABLE) {
         trace { "unsat" }
-        send(Generation(Satisfiability.UNSATISFIABLE, immutableListOf()))
-        return@produce
+        return null
     }
 
-    val initialRoundTarget = targetPointCount.coerceAtMost(SOLUTION_PAGE_SIZE)
-    val initialResults = fairSampler.makeNewPointGeneration(initialRoundTarget, seeds)
+    return produce<InputVector>(Dispatchers.Default) {
 
-    trace { "initial-sampling gen hit ${((100.0 * initialResults.size) / initialRoundTarget).toInt()}%" }
+        val initialRoundTarget = SOLUTION_PAGE_SIZE
+        val initialResults = fairSampler.makeNewPointGeneration(initialRoundTarget, seeds)
 
-    when {
-        initialResults.size > EASY_PATH_THRESHOLD_FACTOR * initialRoundTarget -> {
-            trace { "easy: $inputNames" }
+        trace { "initial-sampling gen hit ${((100.0 * initialResults.size) / initialRoundTarget).toInt()}%" }
 
-            var results = initialResults
-            while (results.size < targetPointCount) {
-                results += fairSampler.makeNewPointGeneration(targetPointCount - results.size, results + seeds)
-            }
+        when {
+            initialResults.size > EASY_PATH_THRESHOLD_FACTOR * initialRoundTarget -> {
+                trace { "easy: $inputNames" }
 
-            send(Generation(Satisfiability.SATISFIABLE, results))
-        }
-        else -> {
-            trace { "balancing: $inputNames" }
+                var results = initialResults
+                while (isActive) {
+                    val nextGen = fairSampler.makeNewPointGeneration(SOLUTION_PAGE_SIZE, results + seeds)
+                    results += nextGen
 
-            var nextRoundTarget = targetPointCount.coerceIn(1..SOLUTION_PAGE_SIZE)
-
-            var pool = seeds + initialResults
-            var publishedPoints = immutableListOf<InputVector>()
-
-            var targets = listOf(fairSampler, adaptiveSampler, improover)
-                .associate { it to nextRoundTarget / 3 }
-                .let { it + (smt to 5) }
-
-            var roundNo = 1
-
-            val inputNames = inputs.map { it.name }
-
-            while (publishedPoints.size < targetPointCount) try {
-
-                trace {
-                    "round start: target=$nextRoundTarget, " +
-                            targets.entries.joinToString { (solver, target) -> "${solver.name}($target)" }
+                    nextGen.forEach { send(it) }
                 }
+            }
+            else -> {
+                trace { "balancing: $inputNames" }
 
-                val resultsAsync: Map<ConstraintSolvingPool, Deferred<PoolResult>> = targets
-                    .mapValues { (solver, target) ->
-                        async(Dispatchers.Default) {
-                            val (time, pts) = measureTime { solver.makeNewPointGeneration(target, pool) }
-                            val (centroid, variance) = findDispersion(inputNames, pts)
+                var pool = seeds + initialResults
+                var publishedPoints = immutableListOf<InputVector>()
 
-                            PoolResult(time, pts, centroid, variance.takeIf { !it.isNaN() } ?: 0.0)
-                        }
+                var targets = listOf(fairSampler, adaptiveSampler, improover)
+                    .associate { it to SOLUTION_PAGE_SIZE / 3 }
+                    .let { it + (smt to 5) }
+
+                var roundNo = 1
+
+                val inputNames = inputs.map { it.name }
+
+                while (isActive) try {
+
+                    trace {
+                        "round start: " + targets.entries.joinToString { (solver, target) -> "${solver.name}($target)" }
                     }
 
-                val results: Map<ConstraintSolvingPool, PoolResult> = resultsAsync
-                    .mapValues { (_, deferred) -> deferred.await() }
+                    val resultsAsync: Map<ConstraintSolvingPool, Deferred<PoolResult>> = targets
+                        .mapValues { (solver, target) ->
+                            async(Dispatchers.Default) {
+                                val (time, pts) = measureTime { solver.makeNewPointGeneration(target, pool) }
+                                val (centroid, variance) = findDispersion(inputNames, pts)
 
-                val overheadStartTime = System.currentTimeMillis()
-
-                val roundResults = results.values.flatMap { (_, points) -> points }
-                pool += roundResults
-
-                val newQualityResults = roundResults.filter { constraints.passFor(it) }
-
-                trace {
-                    val dispersion = findDispersion(inputNames, newQualityResults)
-                    "round results: " +
-                            "target=$nextRoundTarget, " +
-                            "got=${newQualityResults.size}, " +
-                            "dispersion=${dispersion.variance} " +
-                            results.entries.joinToString { (solver, result) ->
-                                "${solver.name}(${result.points.size}, ${TwoSigFigs.format(result.timeMillis)}ms, v=${TwoSigFigsWithE.format(
-                                    result.variance
-                                )})"
+                                PoolResult(time, pts, centroid, variance.takeIf { !it.isNaN() } ?: 0.0)
                             }
-                }
-
-                if (newQualityResults.isEmpty()) {
-                    trace { "no-yards!!" }
-                }
-
-                if (roundNo > WARMUP_ROUNDS) {
-                    val toPublish = newQualityResults.takeLast(targetPointCount - publishedPoints.size)
-                    send(Generation(Satisfiability.SATISFIABLE, toPublish))
-                    publishedPoints += newQualityResults
-                } else trace { "dropped ${newQualityResults.size} pts on warmup round $roundNo" }
-
-                nextRoundTarget = when {
-                    roundNo < WARMUP_ROUNDS -> SOLUTION_PAGE_SIZE
-                    else -> (targetPointCount - publishedPoints.size).coerceIn(1..SOLUTION_PAGE_SIZE)
-                }
-
-                // we balance on performance, unless any pool has a variance significantly worse than the others,
-                // then we avoid that pool
-
-                val speedSum = results.values.sumByDouble { (t, pts, _, _) -> 1.0 * pts.size / t }
-                targets = results.mapValues { (pool, result) ->
-                    val speed = 1.0 * result.points.size / result.timeMillis
-                    (nextRoundTarget * speed / speedSum).toInt()
-                }
-
-                val previousTargets = targets
-                val varianceSum = results.values.sumByDouble { it.variance }
-
-                val varianceAverage = varianceSum / results.values.size
-
-                targets = targets.mapValues { (pool, previousTime) ->
-
-                    val minimumVarianceParticipation = 1.0 / (targets.size * 2)
-
-                    val thisPoolVariance = results.getValue(pool).variance
-                    if (thisPoolVariance / varianceSum < minimumVarianceParticipation) {
-                        if (previousTargets.getValue(pool) != 0) {
-                            trace { "dropped execution of ${pool.name} as its variance was $thisPoolVariance (average is $varianceAverage)" }
                         }
-                        0
-                    } else previousTime
-                }
 
-                trace {
-                    "overhead: ${System.currentTimeMillis() - overheadStartTime}ms"
+                    val results: Map<ConstraintSolvingPool, PoolResult> = resultsAsync
+                        .mapValues { (_, deferred) -> deferred.await() }
+
+                    val overheadStartTime = System.currentTimeMillis()
+
+                    val roundResults = results.values.flatMap { (_, points) -> points }
+                    pool += roundResults
+
+                    val newQualityResults = roundResults.filter { constraints.passFor(it) }
+
+                    trace {
+                        val dispersion = findDispersion(inputNames, newQualityResults)
+                        "round results: " +
+                                "got=${newQualityResults.size}, " +
+                                "dispersion=${dispersion.variance} " +
+                                results.entries.joinToString { (solver, result) ->
+                                    "${solver.name}(${result.points.size}, ${TwoSigFigs.format(result.timeMillis)}ms, v=${TwoSigFigsWithE.format(
+                                        result.variance
+                                    )})"
+                                }
+                    }
+
+                    if (newQualityResults.isEmpty()) {
+                        trace { "no-yards!!" }
+                    }
+
+                    if (roundNo > WARMUP_ROUNDS) {
+                        newQualityResults.forEach{ send(it) }
+                        publishedPoints += newQualityResults
+                    } else trace { "dropped ${newQualityResults.size} pts on warmup round $roundNo" }
+
+                    // we balance on performance, unless any pool has a variance significantly worse than the others,
+                    // then we avoid that pool
+
+                    val speedSum = results.values.sumByDouble { (t, pts, _, _) -> 1.0 * pts.size / t }
+                    targets = results.mapValues { (pool, result) ->
+                        val speed = 1.0 * result.points.size / result.timeMillis
+                        (SOLUTION_PAGE_SIZE * speed / speedSum).toInt()
+                    }
+
+                    val previousTargets = targets
+                    val varianceSum = results.values.sumByDouble { it.variance }
+
+                    val varianceAverage = varianceSum / results.values.size
+
+                    targets = targets.mapValues { (pool, previousTime) ->
+
+                        val minimumVarianceParticipation = 1.0 / (targets.size * 2)
+
+                        val thisPoolVariance = results.getValue(pool).variance
+                        if (thisPoolVariance / varianceSum < minimumVarianceParticipation) {
+                            if (previousTargets.getValue(pool) != 0) {
+                                trace { "dropped execution of ${pool.name} as its variance was $thisPoolVariance (average is $varianceAverage)" }
+                            }
+                            0
+                        } else previousTime
+                    }
+
+                    trace {
+                        "overhead: ${System.currentTimeMillis() - overheadStartTime}ms"
+                    }
+                } finally {
+                    roundNo += 1
                 }
-            } finally {
-                roundNo += 1
             }
         }
     }

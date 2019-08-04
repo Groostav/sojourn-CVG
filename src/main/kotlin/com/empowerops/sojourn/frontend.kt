@@ -3,6 +3,7 @@ package com.empowerops.sojourn
 import com.empowerops.babel.BabelCompiler
 import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
+import kotlinx.coroutines.channels.take
 import kotlinx.coroutines.runBlocking
 
 fun main(args: Array<String>) = runBlocking<Unit> {
@@ -44,14 +45,20 @@ fun main(args: Array<String>) = runBlocking<Unit> {
 
     val sampleStream = makeSampleAgent(
         inputs,
-        targetPointCount,
         compiled.filterIsInstance<BabelExpression>()
     )
 
-    for(generation in sampleStream){
-        //TODO: this basic logging scheme is quickly becoming a problem. need to make this nice.
-        println("${generation.satisfiable}")
-        generation.values.forEach { println(it.toString()) }
+    when(sampleStream){
+        is Satisfied -> {
+            println("SATISFIED")
+            for(it in sampleStream.results.take(targetPointCount)){
+                println(it)
+            }
+        }
+        is Unsatisfiable -> {
+            println("UNSATISFIABLE: why? todo")
+        }
     }
 
+    println("done")
 }
