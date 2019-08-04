@@ -5,6 +5,7 @@ import com.empowerops.babel.BabelExpression
 import com.empowerops.babel.CompilationFailure
 import kotlinx.coroutines.channels.take
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 fun main(args: Array<String>) = runBlocking<Unit> {
 
@@ -44,19 +45,23 @@ fun main(args: Array<String>) = runBlocking<Unit> {
         }
     }.distinct()
 
-    val sampleStream = makeSampleAgent(inputs, constraints)
+    val result = withTimeoutOrNull(20_000) {
 
-    when(sampleStream){
-        is Satisfied -> {
-            println("SATISFIED")
-            for(it in sampleStream.results.take(targetPointCount)){
+        val sampleStream = makeSampleAgent(inputs, constraints)
+
+        println(when(sampleStream){
+            is Satisfiable -> "SATISFIABLE"
+            is Unknown -> "UNKNOWN: ${sampleStream.problemConstraint?.expressionLiteral}"
+            is Unsatisfiable -> "UNSATISFIABLE: ${sampleStream.problemConstraint?.expressionLiteral}"
+        })
+        if(sampleStream is Worthwhile){
+            for (it in sampleStream.results.take(targetPointCount)) {
                 println("$it (PASS=${constraints.passFor(it)})")
             }
         }
-        is Unsatisfiable -> {
-            println("UNSATISFIABLE: why? todo")
-        }
     }
+
+    if(result == null) println("timed-out.")
 
     println("done")
 }

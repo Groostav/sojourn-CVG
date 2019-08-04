@@ -24,6 +24,9 @@ class Z3SolvingPool private constructor(
     private val z3 = Context()
 //    private val solver = z3 { Solver(Tactic("qfnra-nlsat")) }
 
+    private var status: Status? = null
+    var problem: BabelExpression? = null; private set
+
     private val solver = z3 {
         Solver().apply {
             setParameters(context.mkParams().apply {
@@ -68,7 +71,24 @@ class Z3SolvingPool private constructor(
         }
     }
 
-    fun check() = solver.check()
+    // cache for bad results from solver.check
+    //
+    // our strategy is to simply skip constraints that make us UNKNOWN,
+    // thus, if we add a constraint that makes us UNKNOWN, we drop it from the set
+    // but need to describe to callers that we're now UNKNOWN even if solver.check() returns SAT,
+    // because, of course, the solver is not looking at the whole problem anymore.
+    // similarly, if it was ever UNSATISFIABLE, then it must always be so.
+    private fun downgradeTo(newStatus: Status, constraint: BabelExpression?) {
+
+        val currentStatus = status
+
+        if((currentStatus == null && newStatus != Status.SATISFIABLE) || newStatus < currentStatus) {
+            status = newStatus
+            problem = constraint
+        }
+    }
+
+    fun check() = status ?: solver.check().also { downgradeTo(it, null) }
 
     override fun toString(): String {
         return "SOLVER:\n$solver\nMODEL:${try { solver.model } catch(ex: Z3Exception) { null }}"
@@ -147,6 +167,7 @@ class Z3SolvingPool private constructor(
             }
             catch(ex: UnsupportedOperationException){
                 trace { "failed to transcode '${constraint.expressionLiteral}', will be skipped" }
+                downgradeTo(Status.UNKNOWN, constraint)
                 continue
             }
 
@@ -158,6 +179,8 @@ class Z3SolvingPool private constructor(
 
                 if(newSatState != Status.SATISFIABLE){
                     trace { "constraint expr '${constraint.expressionLiteral}' made constraint set $newSatState\n solver is:\n$solver" }
+
+                    downgradeTo(newSatState, constraint)
 
                     if(newSatState == Status.UNKNOWN){
                         //if its UNSAT, leave it that way, and the caller can ispect the state himself.
@@ -191,8 +214,11 @@ class Z3SolvingPool private constructor(
         // given that random sampling has succeeded, it completely floods the solver.
 
         var resolved = solver.check()
+        downgradeTo(resolved, null)
 
-        if (resolved == Status.UNSATISFIABLE) throw UnsatisfiableConstraintsException(solver.toString())
+        if (resolved == Status.UNSATISFIABLE) {
+            throw UnsatisfiableConstraintsException(solver.toString())
+        }
         if (resolved != Status.SATISFIABLE) {
             trace { "solver state is now: $resolved, will pop and return empty list. Solver:\n$solver" }
             solver.pop()

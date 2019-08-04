@@ -23,8 +23,10 @@ private data class DependencyGroup(var deps: Set<String>, var constraints: Set<B
 }
 
 sealed class ConstraintAnalysis
-class Satisfied(val results: ReceiveChannel<InputVector>): ConstraintAnalysis(), ReceiveChannel<InputVector> by results
-object Unsatisfiable: ConstraintAnalysis()
+sealed class Worthwhile(val results: ReceiveChannel<InputVector>): ConstraintAnalysis(), ReceiveChannel<InputVector> by results
+class Satisfiable(results: ReceiveChannel<InputVector>): Worthwhile(results)
+class Unknown(results: ReceiveChannel<InputVector>, val problemConstraint: BabelExpression?): Worthwhile(results)
+class Unsatisfiable(val problemConstraint: BabelExpression?): ConstraintAnalysis()
 
 fun CoroutineScope.makeSampleAgent(
     inputs: List<InputVariable>,
@@ -76,12 +78,12 @@ fun CoroutineScope.makeSampleAgent(
 
     val globalGroup = startAgentGroup(inputs, constraints, samplerSeed, improverSeed, seeds)
 
-    if(globalGroup == null) return Unsatisfiable
+    if(globalGroup is Unsatisfiable) return globalGroup
 
     when(dependencyGroups.size) {
         1 -> {
             require(dependencyGroups.single().deps == inputs.map { it.name }.toSet())
-            return Satisfied(globalGroup)
+            return globalGroup
         }
         else -> {
 
@@ -89,10 +91,12 @@ fun CoroutineScope.makeSampleAgent(
 //             the reason being is that we can then use the same load balancing as previous
 
             val parts = dependencyGroups.associate { group ->
-                group to startAgentGroup(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, seeds)!!
+                group to (startAgentGroup(inputs.filter { it.name in group.deps }, group.constraints, samplerSeed, improverSeed, seeds) as Worthwhile)
             }
 
-            return Satisfied(globalGroup + produce<InputVector> {
+            require(globalGroup is Worthwhile)
+
+            val pts = globalGroup + produce<InputVector> {
                 try {
                     while (isActive) {
 
@@ -119,7 +123,13 @@ fun CoroutineScope.makeSampleAgent(
                     globalGroup.cancel()
                     parts.values.forEach { it.cancel() }
                 }
-            })
+            }
+
+            return when(globalGroup){
+                is Unsatisfiable -> TODO()
+                is Satisfiable -> Satisfiable(pts)
+                is Unknown -> Unknown(pts, globalGroup.problemConstraint)
+            }
         }
     }
 }
@@ -170,7 +180,7 @@ private fun CoroutineScope.startAgentGroup(
     samplerSeed: Random,
     improverSeed: Random,
     seeds: ImmutableList<InputVector>
-): ReceiveChannel<InputVector>? {
+): ConstraintAnalysis {
 
     val inputNames = inputs.map { it.name }
     val fairSampler = RandomSamplingPool.create(inputs, constraints)
@@ -178,12 +188,13 @@ private fun CoroutineScope.startAgentGroup(
     val improover = RandomBoundedWalkingImproverPool.Factory(improverSeed).create(inputs, constraints)
     val smt = Z3SolvingPool.create(inputs, constraints)
 
-    if (smt.check() == Status.UNSATISFIABLE) {
+    val smtState = smt.check()
+    if (smtState == Status.UNSATISFIABLE) {
         trace { "unsat" }
-        return null
+        return Unsatisfiable(smt.problem)
     }
 
-    return produce<InputVector>(Dispatchers.Default) {
+    val pts = produce<InputVector>(Dispatchers.Default) {
 
         val initialRoundTarget = SOLUTION_PAGE_SIZE
         val initialResults = fairSampler.makeNewPointGeneration(initialRoundTarget, seeds)
@@ -213,6 +224,7 @@ private fun CoroutineScope.startAgentGroup(
                     .let { it + (smt to 5) }
 
                 var roundNo = 1
+                var roundHadProgress = true
 
                 val inputNames = inputs.map { it.name }
 
@@ -245,17 +257,18 @@ private fun CoroutineScope.startAgentGroup(
                     trace {
                         val dispersion = findDispersion(inputNames, newQualityResults)
                         "round results: " +
-                                "got=${newQualityResults.size}, " +
+                                "feasible=${newQualityResults.size}, " +
                                 "dispersion=${dispersion.variance} " +
                                 results.entries.joinToString { (solver, result) ->
-                                    "${solver.name}(${result.points.size}, ${TwoSigFigs.format(result.timeMillis)}ms, v=${TwoSigFigsWithE.format(
-                                        result.variance
-                                    )})"
+                                    "${solver.name}(${result.points.size}, " +
+                                            "${TwoSigFigs.format(result.timeMillis)}ms, " +
+                                            "${TwoSigFigsWithE.format(result.variance)}σ)"
                                 }
                     }
 
                     if (newQualityResults.isEmpty()) {
                         trace { "no-yards!!" }
+                        roundHadProgress = false
                     }
 
                     if (roundNo > WARMUP_ROUNDS) {
@@ -294,10 +307,17 @@ private fun CoroutineScope.startAgentGroup(
                         "overhead: ${System.currentTimeMillis() - overheadStartTime}ms"
                     }
                 } finally {
-                    roundNo += 1
+                    if(roundHadProgress) roundNo += 1
+                    roundHadProgress = true
                 }
             }
         }
+    }
+
+    return when(smtState){
+        Status.SATISFIABLE -> Satisfiable(pts)
+        Status.UNKNOWN -> Unknown(pts, smt.problem)
+        Status.UNSATISFIABLE -> TODO()
     }
 }
 
