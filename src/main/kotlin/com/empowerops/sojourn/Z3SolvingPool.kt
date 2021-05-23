@@ -214,7 +214,7 @@ class Z3SolvingPool private constructor(
         // given that random sampling has succeeded, it completely floods the solver.
 
         var resolved = solver.check()
-        downgradeTo(resolved, null)
+//        downgradeTo(resolved, null)
 
         if (resolved == Status.UNSATISFIABLE) {
             throw UnsatisfiableConstraintsException(solver.toString())
@@ -572,3 +572,8 @@ private fun Context.mkAnonRealConst(prefix: String = ""): RealExpr = mkRealConst
 private fun Context.mkAnonIntConst(prefix: String = ""): IntExpr = mkIntConst("${if(prefix != "") "$prefix-" else ""}temp-${tempId++}")
 
 private fun transcodeFailure(message: String): Nothing= throw UnsupportedOperationException(message)
+
+
+
+
+class 
