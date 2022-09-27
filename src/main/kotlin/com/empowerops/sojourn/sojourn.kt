@@ -48,7 +48,7 @@ fun CoroutineScope.makeSampleAgent(
 
         val merging = constraint.staticallyReferencedSymbols.flatMap { varName ->
             dependencyGroups.filter { varName in it.deps }
-        }
+        }.toSet()
 
         when(merging.size) {
             0 -> dependencyGroups += DependencyGroup(constraint.staticallyReferencedSymbols, setOf(constraint))

@@ -82,7 +82,7 @@ class Z3SolvingPool private constructor(
 
         val currentStatus = status
 
-        if((currentStatus == null && newStatus != Status.SATISFIABLE) || newStatus < currentStatus) {
+        if(currentStatus == null || newStatus < currentStatus) {
             status = newStatus
             problem = constraint
         }
@@ -572,8 +572,3 @@ private fun Context.mkAnonRealConst(prefix: String = ""): RealExpr = mkRealConst
 private fun Context.mkAnonIntConst(prefix: String = ""): IntExpr = mkIntConst("${if(prefix != "") "$prefix-" else ""}temp-${tempId++}")
 
 private fun transcodeFailure(message: String): Nothing= throw UnsupportedOperationException(message)
-
-
-
-
-class 
